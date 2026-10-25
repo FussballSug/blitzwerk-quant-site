@@ -28,11 +28,15 @@ def test_public_copy_is_us_english():
         "US AI QUANTITATIVE TRADING",
         "THREE AI RESEARCH TRADERS",
         "software trader roles",
+        "screened universe of eligible US stocks",
+        "Target operating model",
         "Specialized AI roles use quantitative research",
         "We use AI to turn quantitative market research",
         "human-governed",
     ):
         assert required in document
+    for obsolete in ("assigned to F", "assigned to BAC", "assigned to SOFI"):
+        assert obsolete not in document
     for german_copy in (
         "Präzision",
         "Kontrolle",
