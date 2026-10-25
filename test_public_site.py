@@ -26,7 +26,8 @@ def test_public_copy_is_us_english():
         "AI EMPLOYEES",
         "OPERATING PRINCIPLES",
         "US AI QUANTITATIVE TRADING",
-        "specialized AI research roles",
+        "Specialized AI roles use quantitative research",
+        "We use AI to turn quantitative market research",
         "human-governed",
     ):
         assert required in document
