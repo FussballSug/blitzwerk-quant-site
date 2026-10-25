@@ -30,6 +30,8 @@ def test_public_copy_is_us_english():
         "software trader roles",
         "screened universe of eligible US stocks",
         "Target operating model",
+        "liquidity, spread, price, data quality, volatility, and risk",
+        "No trade is proposed when no candidate qualifies",
         "Specialized AI roles use quantitative research",
         "We use AI to turn quantitative market research",
         "human-governed",
