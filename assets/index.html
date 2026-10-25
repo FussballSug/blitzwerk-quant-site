@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Public operations view for Blitzwerk Kapital, a US AI quantitative trading technology company.">
+  <title>Blitzwerk Kapital — Operations Center</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body data-page="__PAGE__">
+  <div class="grain" aria-hidden="true"></div>
+  <header>
+    <a class="brand" href="#home"><span class="monogram">BK</span><span><b>BLITZWERK</b><small>KAPITAL</small></span></a>
+    <nav><a href="#mission">MISSION</a><a href="#processes">PROCESSES</a><a href="#desk">DESK</a><a href="#team">AI TEAM</a><a href="#principles">PRINCIPLES</a></nav>
+    <div class="system"><i></i><span id="system-state">LOADING STATUS</span></div>
+  </header>
+
+  <main id="operations">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="kicker">US QUANTITATIVE RESEARCH · CENTRAL TIME</p>
+        <h1>Precision.<br><em>Control.</em><br>Progress.</h1>
+        <p class="intro">A public window into how our research desk moves ideas through evidence, independent validation, deterministic risk controls, and bounded broker simulation.</p>
+      </div>
+      <div class="radar" aria-label="Animated process radar">
+        <div class="orbit o1"><span></span></div><div class="orbit o2"><span></span></div><div class="orbit o3"><span></span></div>
+        <div class="radar-core"><b id="desk-state">—</b><small>DESK STATE</small></div>
+        <div class="sweep"></div>
+      </div>
+      <div class="stamp"><span>LATEST UPDATE</span><b id="snapshot-time">UNVERIFIED</b><small id="freshness">NO PUBLIC SIGNAL</small></div>
+    </section>
+
+
+    <section class="mission" id="mission">
+      <div class="section-label"><span>01</span><p>OUR MISSION</p><h2>Build a disciplined<br>research company.</h2></div>
+      <div class="mission-grid">
+        <article class="mission-lead"><p>WHAT WE DO</p><h3>We turn market ideas into measurable, reproducible experiments.</h3><div class="mission-copy">Blitzwerk Kapital is a US AI quantitative trading technology company building an AI-assisted research and trading platform. Current systems remain in validation with simulated broker orders. Specialized software roles research hypotheses, challenge assumptions, apply deterministic risk controls, and document what actually happened.</div></article>
+        <article><span>01</span><h4>RESEARCH</h4><p>Study liquid US markets, market structure, macro events, and systematic trading hypotheses using cited and reproducible evidence.</p></article>
+        <article><span>02</span><h4>VALIDATE</h4><p>Test out of sample, include realistic costs, compare benchmarks, expose failure modes, and reject fragile ideas.</p></article>
+        <article><span>03</span><h4>OPERATE</h4><p>Run bounded broker simulations with independent monitoring, durable records, reconciliation, and fail-closed controls.</p></article>
+      </div>
+      <div class="ambition">
+        <div><p>WHAT WE AIM TO ACHIEVE</p><h3>A trustworthy research stack that can earn the right to advance.</h3></div>
+        <ol>
+          <li><b>NOW</b><span>Reliable multi-strategy simulation and research with honest operational evidence.</span></li>
+          <li><b>NEXT</b><span>Extended forward testing, measured costs, stable monitoring, and secure owner reporting.</span></li>
+          <li><b>LATER</b><span>Only after sufficient evidence and explicit approval, evaluate a tightly bounded live pilot using the owner's capital.</span></li>
+        </ol>
+      </div>
+      <p class="mission-boundary">Financial independence is an aspiration, not a forecast. No strategy, simulation, AI system, or short simulation sample guarantees profit.</p>
+    </section>
+
+    <section class="process-section" id="processes">
+      <div class="section-label"><span>02</span><p>OPERATIONS CENTER</p><h2>From signal to safe experiment.</h2></div>
+      <div class="process-rail" id="process-rail"></div>
+      <p class="rail-note">Animated activity represents workflow state, never a trade, fill, profit, or account balance.</p>
+    </section>
+
+    <section class="desk" id="desk">
+      <div class="section-label"><span>03</span><p>THREE RESEARCH TRACKS</p><h2>Independent ideas.<br>Shared controls.</h2></div>
+      <div class="trader-grid" id="traders"></div>
+    </section>
+
+    <section class="team" id="team">
+      <div class="section-label"><span>04</span><p>AI EMPLOYEES</p><h2>The company<br>operating system.</h2></div>
+      <div class="team-intro">
+        <p>Blitzwerk's named employees are transparent software responsibility roles. They organize research, review, controls, and reporting; they are not human staff and do not independently hold corporate or trading authority.</p>
+        <div class="team-filters" id="team-filters" aria-label="Filter AI employee directory"></div>
+      </div>
+      <div class="employee-grid" id="employees"></div>
+    </section>
+
+    <section class="principles" id="principles">
+      <div class="section-label"><span>05</span><p>OPERATING PRINCIPLES</p><h2>Evidence before action.</h2></div>
+      <div class="principle-grid">
+        <article><b>01</b><h3>SIMULATION FIRST</h3><p>The public desk describes research and broker simulations. It makes no return promise.</p></article>
+        <article><b>02</b><h3>FAIL CLOSED</h3><p>Stale data, uncertain state, or failed reconciliation blocks progression.</p></article>
+        <article><b>03</b><h3>MODEL ≠ CONTROL</h3><p>Deterministic controls remain independent of AI research and review.</p></article>
+        <article><b>04</b><h3>NO ACCOUNT DATA</h3><p>No balances, positions, orders, credentials, identifiers, or private incidents appear here.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>BLITZWERK KAPITAL</span><span>AI TRADING TECHNOLOGY</span><span id="clock">--:--:-- CT</span></footer>
+  <script src="app.js"></script>
+</body>
+</html>
