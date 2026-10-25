@@ -25,7 +25,9 @@ def test_public_copy_is_us_english():
         "THREE RESEARCH TRACKS",
         "AI EMPLOYEES",
         "OPERATING PRINCIPLES",
-        "US QUANTITATIVE RESEARCH",
+        "US AI QUANTITATIVE TRADING",
+        "specialized AI research roles",
+        "human-governed",
     ):
         assert required in document
     for german_copy in (
