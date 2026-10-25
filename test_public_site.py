@@ -22,10 +22,12 @@ def test_public_copy_is_us_english():
         "Progress.",
         "OUR MISSION",
         "OPERATIONS CENTER",
-        "THREE RESEARCH TRACKS",
+        "THREE AI RESEARCH TRADERS",
         "AI EMPLOYEES",
         "OPERATING PRINCIPLES",
         "US AI QUANTITATIVE TRADING",
+        "THREE AI RESEARCH TRADERS",
+        "software trader roles",
         "Specialized AI roles use quantitative research",
         "We use AI to turn quantitative market research",
         "human-governed",
@@ -64,7 +66,7 @@ def test_each_public_page_selects_its_populated_section():
     expected = {
         "mission": "WHAT WE AIM TO ACHIEVE",
         "processes": "From signal to safe experiment.",
-        "desk": "THREE RESEARCH TRACKS",
+        "desk": "THREE AI RESEARCH TRADERS",
         "team": "Alexander von Stein",
         "principles": "Evidence before action.",
     }
