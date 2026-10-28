@@ -29,7 +29,7 @@ def test_public_copy_is_us_english():
         "THREE AI RESEARCH TRADERS",
         "software trader roles",
         "screened universe of eligible US stocks",
-        "Target operating model",
+        "Implemented paper workflow",
         "liquidity, spread, price, data quality, volatility, and risk",
         "No trade is proposed when no candidate qualifies",
         "Specialized AI roles use quantitative research",
@@ -92,3 +92,16 @@ def test_company_identity_is_quantitative_trading_technology():
     assert "US AI quantitative trading technology company" in document
     assert "Current systems remain in validation with simulated broker orders" in document
     assert "PAPER RESEARCH PLATFORM" not in document
+
+
+def test_dated_paper_milestone_is_not_live_telemetry():
+    document = streamlit_app.render_document(streamlit_app.public_snapshot())
+    for required in ('DEPLOYMENT MILESTONE', 'October 28, 2026', 'Three-strategy paper desk deployed',
+                     'This dated milestone is not a live service-status feed', 'Daily readiness checks still gate each session',
+                     'PAPER WORKFLOW IMPLEMENTED'):
+        assert required in document
+    for private in ('Michael Williams', 'michaelwilliams', '/Users/', 'service_pid', 'authority_reference'):
+        assert private not in document
+    snapshot = streamlit_app.public_snapshot()
+    assert snapshot['freshness'] == 'unverified'
+    assert snapshot['desk_state'] == 'status unavailable'
