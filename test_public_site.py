@@ -105,3 +105,13 @@ def test_dated_paper_milestone_is_not_live_telemetry():
     snapshot = streamlit_app.public_snapshot()
     assert snapshot['freshness'] == 'unverified'
     assert snapshot['desk_state'] == 'status unavailable'
+
+
+def test_hero_deployment_animation_is_illustrative():
+    document = streamlit_app.render_document(streamlit_app.public_snapshot())
+    hero = document.split('<section class="hero">')[1].split('</section>')[0]
+    assert 'class="deployment-milestone"' in hero
+    assert 'class="desk-animation"' in hero
+    assert 'PAPER DESK' in hero and 'DEPLOYED' in hero
+    assert 'Illustrative workflow, not live trading activity' in hero
+    assert 'prefers-reduced-motion' in document

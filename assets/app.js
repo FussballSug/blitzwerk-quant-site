@@ -1,10 +1,8 @@
 const fallback={schema_version:1,snapshot_at:null,freshness:"unverified",mode:"simulation validation",desk_state:"status unavailable",traders:[{name:"Maximilian Braun",strategy:"Trend",state:"planned universe scanner"},{name:"Felix Hartmann",strategy:"Momentum",state:"planned universe scanner"},{name:"Tobias Krüger",strategy:"Mean reversion",state:"planned universe scanner"}],stages:[{name:"Research",state:"active"},{name:"Independent validation",state:"required"},{name:"Deterministic risk",state:"enforced"},{name:"Broker simulation",state:"gated"}]};
 const $=id=>document.getElementById(id);const escape=value=>{const n=document.createElement("span");n.textContent=String(value);return n.innerHTML};
 function render(data){
-  $("desk-state").textContent=data.desk_state;$("system-state").textContent=`${data.mode} · ${data.freshness}`;
+  $("system-state").textContent=data.freshness==="unverified"?"PUBLIC TELEMETRY NOT CONNECTED":`${data.mode} · ${data.freshness}`;
   $("system-state").parentElement.querySelector("i").style.background=data.freshness==="current"?"var(--acid)":"var(--orange)";
-  $("snapshot-time").textContent=data.snapshot_at?new Date(data.snapshot_at).toLocaleString("en-US",{timeZone:"America/Chicago",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})+" CT":"UNVERIFIED";
-  $("freshness").textContent=data.freshness.toUpperCase();$("freshness").className=data.freshness==="current"?"current":"warning";
   $("process-rail").innerHTML=data.stages.map((s,i)=>`<article class="stage"><span class="stage-index">0${i+1}</span><span class="stage-state">${escape(s.state)}</span><h3>${escape(s.name)}</h3><p>${["Hypotheses move through reproducible evidence.","Independent checks challenge every candidate.","Hard limits gate progression without model discretion.","Bounded experiments remain in broker simulation."][i]||"Verified workflow stage."}</p><div class="flow"></div></article>`).join("");
   $("traders").innerHTML=data.traders.map((t,i)=>`<article class="trader"><span class="number">DESK / 0${i+1}</span><span class="symbol">US STOCK UNIVERSE</span><h3>${escape(t.name)}</h3><span class="strategy">${escape(t.strategy).toUpperCase()}</span><div class="activity"><span>PAPER WORKFLOW IMPLEMENTED</span><i></i></div></article>`).join("");
 }
