@@ -575,6 +575,14 @@ def export_package(directory):
     return directory
 
 
+def configured_public_feed(environment=None):
+    """Default to the existing public feed only when both settings are absent."""
+    environment = os.environ if environment is None else environment
+    if 'PUBLIC_STATUS_URL' not in environment and 'PUBLIC_STATUS_URL_TEMPLATE' not in environment:
+        return STATUS_LATEST_URL, STATUS_URL_TEMPLATE
+    return environment.get('PUBLIC_STATUS_URL'), environment.get('PUBLIC_STATUS_URL_TEMPLATE')
+
+
 def main():
     import streamlit as st
 
@@ -585,8 +593,8 @@ def main():
 
     @st.fragment(run_every='30s')
     def reporting_view():
-        snapshot, status = load_public_snapshot(os.environ.get('PUBLIC_STATUS_URL'),
-                         url_template=os.environ.get('PUBLIC_STATUS_URL_TEMPLATE'),
+        url, template = configured_public_feed()
+        snapshot, status = load_public_snapshot(url, url_template=template,
                          cache=st.session_state['public_snapshot_cache'], now=datetime.now(UTC))
         if status == 'remote_unavailable_last_verified':
             st.warning('Reporting feed unavailable. Showing the last verified public snapshot; current engine state is unknown.')
