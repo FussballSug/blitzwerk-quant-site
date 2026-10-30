@@ -1,8 +1,62 @@
 import json
+import sys
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
 import streamlit_app
+
+
+@pytest.mark.parametrize("current_slot_available", [True, False])
+def test_hosted_entry_reads_fixed_status_feed_without_environment(monkeypatch, current_slot_available):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, zone=None):
+            return cls(2026, 10, 30, 23, 2, tzinfo=UTC)
+    now = FixedDateTime.now(UTC)
+    observed = now - timedelta(seconds=90)
+    snapshot = streamlit_app.build_public_snapshot(
+        {"checked_at": observed.isoformat(), "state": "stopped", "health": "attention"},
+        now=observed,
+    )
+    current_url = streamlit_app.current_slot_url(streamlit_app.STATUS_URL_TEMPLATE, now=now)
+    requests, rendered = [], []
+
+    def fetch(url, *, timeout):
+        requests.append(url)
+        assert 0 < timeout <= streamlit_app.FETCH_TIMEOUT_SECONDS
+        if url == current_url and not current_slot_available:
+            raise OSError("current slot missing")
+        assert url in (current_url, streamlit_app.STATUS_LATEST_URL)
+        return json.dumps(snapshot).encode()
+
+    fake_streamlit = SimpleNamespace(
+        set_page_config=lambda **kwargs: None,
+        markdown=lambda *args, **kwargs: None,
+        fragment=lambda **kwargs: lambda function: function,
+        warning=lambda *args: None,
+        iframe=lambda document, **kwargs: rendered.append(document),
+        session_state={}, query_params={},
+    )
+    monkeypatch.delenv("PUBLIC_STATUS_URL", raising=False)
+    monkeypatch.delenv("PUBLIC_STATUS_URL_TEMPLATE", raising=False)
+    monkeypatch.setitem(sys.modules, "streamlit", fake_streamlit)
+    monkeypatch.setattr(streamlit_app, "datetime", FixedDateTime)
+    monkeypatch.setattr(streamlit_app, "fetch_public_snapshot", fetch)
+    streamlit_app.main()
+    assert requests == ([current_url] if current_slot_available else [current_url, streamlit_app.STATUS_LATEST_URL])
+    received = json.loads(rendered[0].split("window.BLITZWERK_DATA=", 1)[1].split(";</script>", 1)[0])
+    assert received["snapshot_at"] == observed.isoformat()
+    assert received["freshness"] == ("current" if current_slot_available else "stale")
+    assert received["desk_state"] == ("stopped for review" if current_slot_available else "status delayed")
+
+
+def test_feed_default_does_not_replace_explicit_settings():
+    assert streamlit_app.configured_public_feed({}) == (streamlit_app.STATUS_LATEST_URL, streamlit_app.STATUS_URL_TEMPLATE)
+    assert streamlit_app.configured_public_feed({"PUBLIC_STATUS_URL": ""}) == ("", None)
+    assert streamlit_app.configured_public_feed({"PUBLIC_STATUS_URL_TEMPLATE": ""}) == (None, "")
+    assert streamlit_app.configured_public_feed({"PUBLIC_STATUS_URL": "https://status.example.org/snapshot.json"}) == ("https://status.example.org/snapshot.json", None)
 
 
 def test_exact_public_schema_and_no_private_terms():
