@@ -15,13 +15,14 @@
   </header>
 
   <main id="operations">
+    <aside id="offline-warning" class="offline-warning" role="status">UNVERIFIED REPORTING — Current engine state is unknown.</aside>
     <section class="hero">
       <div class="hero-copy">
         <p class="kicker">US AI QUANTITATIVE TRADING · CENTRAL TIME</p>
         <h1>Precision.<br><em>Control.</em><br>Progress.</h1>
-        <p class="intro">A public window into a human-governed AI trading desk. Specialized AI roles use quantitative research to generate, challenge, and validate market hypotheses before deterministic controls permit broker simulation.</p>
+        <p class="intro">A public window into a human-governed AI trading desk. Specialized AI roles use quantitative research to generate, challenge, and validate market hypotheses within the existing PAPER / SIMULATED mandate. Runtime snapshots show only verified observations.</p>
       </div>
-      <div class="radar" aria-label="Animated process radar">
+      <div class="radar" aria-label="Paper desk status">
         <div class="orbit o1"><span></span></div><div class="orbit o2"><span></span></div><div class="orbit o3"><span></span></div>
         <div class="radar-core"><b id="desk-state">—</b><small>DESK STATE</small></div>
         <div class="sweep"></div>
@@ -52,12 +53,13 @@
     <section class="process-section" id="processes">
       <div class="section-label"><span>02</span><p>OPERATIONS CENTER</p><h2>From signal to safe experiment.</h2></div>
       <div class="process-rail" id="process-rail"></div>
-      <p class="rail-note">Animated activity represents workflow state, never a trade, fill, profit, or account balance.</p>
+      <p class="rail-note">Actual durable checkpoints are shown below. Missing runtime evidence is unknown.</p>
+      <div id="workflow-runs" class="workflow-runs"></div>
     </section>
 
     <section class="desk" id="desk">
       <div class="section-label"><span>03</span><p>THREE AI RESEARCH TRADERS</p><h2>Independent strategies.<br>Shared controls.</h2></div>
-      <p class="rail-note"><b>Target operating model:</b> these software trader roles will scan a screened universe of eligible US stocks. The universe first filters for tradability, liquidity, spread, price, data quality, volatility, and risk. Each trader then applies its quantitative strategy, and the desk ranks the candidates using out-of-sample evidence and estimated trading costs. The highest-ranked qualified opportunity can advance through independent validation and deterministic risk controls. No trade is proposed when no candidate qualifies. Strategy assignments are permanent; individual stock symbols can change. This capability remains under development and validation.</p>
+      <p class="rail-note"><b>PAPER / SIMULATED:</b> these software trader roles are assigned to scan a screened universe of eligible US stocks. The universe first filters for tradability, liquidity, spread, price, data quality, volatility, and risk. Each trader then applies its quantitative strategy, and the desk ranks the candidates using out-of-sample evidence and estimated trading costs. The highest-ranked qualified opportunity can advance through independent validation and deterministic risk controls. No trade is proposed when no candidate qualifies. Strategy assignments are permanent; individual stock symbols can change. Current task and operating evidence appear below; missing metrics and strategy versions remain unknown.</p>
       <div class="trader-grid" id="traders"></div>
     </section>
 
@@ -70,13 +72,21 @@
       <div class="employee-grid" id="employees"></div>
     </section>
 
+    <section class="runtime-status" id="status">
+      <div class="section-label"><span>05</span><p>INCIDENTS &amp; IMPROVEMENT</p><h2>Verified operational evidence.</h2></div>
+      <h3>Active incidents and recovery</h3><div id="incident-list"></div>
+      <h3>Improvement candidates</h3><div id="improvement-list"></div>
+      <p id="sug-connection" class="rail-note">Sug reporting route: unverified.</p>
+      <p class="rail-note">Last sustained recovery: UNKNOWN until a complete reconciled recovery artifact is verified. A running process alone is insufficient.</p>
+    </section>
+
     <section class="principles" id="principles">
       <div class="section-label"><span>05</span><p>OPERATING PRINCIPLES</p><h2>Evidence before action.</h2></div>
       <div class="principle-grid">
         <article><b>01</b><h3>SIMULATION FIRST</h3><p>The public desk describes research and broker simulations. It makes no return promise.</p></article>
         <article><b>02</b><h3>FAIL CLOSED</h3><p>Stale data, uncertain state, or failed reconciliation blocks progression.</p></article>
         <article><b>03</b><h3>MODEL ≠ CONTROL</h3><p>Deterministic controls remain independent of AI research and review.</p></article>
-        <article><b>04</b><h3>NO ACCOUNT DATA</h3><p>No balances, positions, orders, credentials, identifiers, or private incidents appear here.</p></article>
+        <article><b>04</b><h3>NO ACCOUNT DATA</h3><p>Only sanitized operational facts appear here. Private logs and trading controls remain private.</p></article>
       </div>
     </section>
   </main>

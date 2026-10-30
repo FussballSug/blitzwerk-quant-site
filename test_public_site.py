@@ -3,19 +3,19 @@ import streamlit_app
 
 
 def test_exact_public_schema_and_no_private_terms():
-    snapshot = streamlit_app.public_snapshot()
+    snapshot = streamlit_app.load_local_snapshot()
     assert set(snapshot) == streamlit_app.PUBLIC_KEYS
     document = streamlit_app.render_document(snapshot)
     assert "BLITZWERK_DATA" in document
     for forbidden in ("account_id", "account number", "secret_key", "buying_power", "order_id"):
         assert forbidden not in document
-    for required in ("WHAT WE DO", "WHAT WE AIM TO ACHIEVE", "Alexander von Stein", "not human staff"):
+    for required in ("WHAT WE DO", "WHAT WE AIM TO ACHIEVE", "Sug", "not human staff"):
         assert required in document
     json.dumps(snapshot)
 
 
 def test_public_copy_is_us_english():
-    document = streamlit_app.render_document(streamlit_app.public_snapshot())
+    document = streamlit_app.render_document(streamlit_app.load_local_snapshot())
     for required in (
         "Precision.",
         "Control.",
@@ -29,7 +29,7 @@ def test_public_copy_is_us_english():
         "THREE AI RESEARCH TRADERS",
         "software trader roles",
         "screened universe of eligible US stocks",
-        "Target operating model",
+        "PAPER / SIMULATED",
         "liquidity, spread, price, data quality, volatility, and risk",
         "No trade is proposed when no candidate qualifies",
         "Specialized AI roles use quantitative research",
@@ -55,7 +55,7 @@ def test_public_copy_is_us_english():
 
 
 def test_navigation_targets_populated_sections():
-    document = streamlit_app.render_document(streamlit_app.public_snapshot(), page="home")
+    document = streamlit_app.render_document(streamlit_app.load_local_snapshot(), page="home")
     for target in ("mission", "processes", "desk", "team", "principles"):
         assert f'href="#{target}"' in document
         assert f'id="{target}"' in document
@@ -64,16 +64,16 @@ def test_navigation_targets_populated_sections():
     assert "showPage(link.getAttribute" in document
     assert '[hidden]{display:none!important}' in document
     assert 'id==="home"' in document
-    assert document.count('class="section-label"') == 5
+    assert document.count('class="section-label"') == 6
 
 
 def test_each_public_page_selects_its_populated_section():
-    snapshot = streamlit_app.public_snapshot()
+    snapshot = streamlit_app.load_local_snapshot()
     expected = {
         "mission": "WHAT WE AIM TO ACHIEVE",
         "processes": "From signal to safe experiment.",
         "desk": "THREE AI RESEARCH TRADERS",
-        "team": "Alexander von Stein",
+        "team": "Sug",
         "principles": "Evidence before action.",
     }
     for page, content in expected.items():
@@ -83,12 +83,12 @@ def test_each_public_page_selects_its_populated_section():
 
 
 def test_unknown_page_falls_back_to_home():
-    document = streamlit_app.render_document(streamlit_app.public_snapshot(), page="private")
+    document = streamlit_app.render_document(streamlit_app.load_local_snapshot(), page="private")
     assert 'data-page="home"' in document
 
 
 def test_company_identity_is_quantitative_trading_technology():
-    document = streamlit_app.render_document(streamlit_app.public_snapshot(), page="mission")
+    document = streamlit_app.render_document(streamlit_app.load_local_snapshot(), page="mission")
     assert "US AI quantitative trading technology company" in document
     assert "Current systems remain in validation with simulated broker orders" in document
     assert "PAPER RESEARCH PLATFORM" not in document
