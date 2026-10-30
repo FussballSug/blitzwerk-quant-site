@@ -13,6 +13,7 @@ import re
 import shutil
 import time
 from datetime import UTC, datetime
+from decimal import Decimal
 from http.client import HTTPException
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -75,6 +76,136 @@ def _rows(value, limit=200):
     return value[:limit] if isinstance(value, list) else []
 
 
+
+
+
+
+
+
+# BEGIN canonical public evidence helpers
+METRICS=('realized_pnl','unrealized_pnl','drawdown','exposure','fees','sample_size')
+
+LEGACY_TRADER_KEYS = frozenset({'employee_id','name','strategy','state','strategy_version',
+                               'approved_universe','performance'})
+
+OBSERVATION_MODE = 'source_receipt_observation'
+
+RECOVERY_MODE = 'finite_stopped_startup_recovery'
+
+CANARY_MODE = 'finite_closed_session_canary'
+
+OBSERVATION_GRAPHS = {
+    'trading': GRAPHS['trading'],
+    'publishing': ('hourly_trigger', 'collect_status_receipts', 'validate_sanitize', 'immutable_snapshot',
+                   'publish_atomically', 'verify_public', 'record_success'),
+    'incident': ('detect', 'capture_evidence', 'diagnose', 'repair_or_recovery'),
+}
+
+RUNTIME_BASES={'future_clock','recorded_heartbeat_not_worker_attestation','controller_result_invalid',
+    'controller_heartbeat_overdue','scheduled_task_overdue','controller_handled_responsibility',
+    'expected_heartbeat_overdue','responsibility_record_only'}
+
+def unknown():
+    return {'strategy_version':None,'configured_strategy_version':None,'executed_strategy_version':None,
+        'configured_source_revision':None,'executed_source_revision':None,'manifest_sha256':None,
+        'strategy_evidence_state':'missing_data','strategy_evidence_as_of':None,'strategy_evidence_reference':None,
+        'execution_basis':None,'worker_connection_verified':False,'mandate_reference':None,
+        'approved_universe_reference':None,'risk_policy_reference':None,
+        'performance':dict.fromkeys(METRICS),'performance_basis':None,'performance_as_of':None,
+        'performance_reference':None,'assumed_costs':None,'fees_basis':'unknown'}
+
+def _number(value,*,nonnegative=False):
+    if value is None:return None
+    if type(value) is not str or not 1<=len(value)<=64:raise ValueError('Bounded metric amount required.')
+    result=Decimal(value)
+    if not result.is_finite() or abs(result.adjusted())>12 or nonnegative and result<0:raise ValueError('Invalid metric amount.')
+    return str(result)
+
+def _digest(value,size=64):
+    return value if type(value) is str and re.fullmatch('[a-f0-9]{'+str(size)+'}',value) else None
+
+def _employee_evidence(row,now):
+    """Shape/expiry allowlist for the authoritative employee producer projection."""
+    result=unknown();at=_epoch(row.get('strategy_evidence_as_of'))
+    state=row.get('strategy_evidence_state')
+    if _member(state,{'stale','missing_data'}):result['strategy_evidence_state']=state
+    if at is not None and now is not None and at<=now and now-at>60:
+        result['strategy_evidence_state']='stale'
+    if (state!='current' or at is None or now is not None and not 0<=now-at<=60
+            or row.get('worker_connection_verified') is not False
+            or row.get('execution_basis')!='recorded_evaluation_receipt'):
+        return result
+    versions={key:_digest(row.get(key)) for key in ('strategy_version','configured_strategy_version',
+        'executed_strategy_version','manifest_sha256','strategy_evidence_reference','mandate_reference')}
+    sources={key:_digest(row.get(key),40) for key in ('configured_source_revision','executed_source_revision')}
+    if (any(v is None for v in (*versions.values(),*sources.values()))
+            or versions['strategy_version']!=versions['executed_strategy_version']):return result
+    result.update(versions);result.update(sources)
+    result.update(strategy_evidence_state='current',strategy_evidence_as_of=at,
+        execution_basis='recorded_evaluation_receipt',worker_connection_verified=False)
+    for key in ('approved_universe_reference','risk_policy_reference'):result[key]=_digest(row.get(key))
+    performance_at=_epoch(row.get('performance_as_of'));basis=row.get('performance_basis')
+    reference=_digest(row.get('performance_reference'));values=row.get('performance')
+    if (performance_at is None or now is not None and not 0<=now-performance_at<=60
+            or not _member(basis,{'paper_local_virtual_cost_v1','broker_reported_accounting'})
+            or reference is None or type(values) is not dict or set(values)!=set(METRICS)):
+        return result
+    metrics={}
+    for key in METRICS:
+        value=values[key]
+        try:
+            metrics[key]=(value if type(value) is int and 0<=value<=1000000 else None) if key=='sample_size' else _number(value,nonnegative=key in {'drawdown','exposure','fees'})
+        except (ValueError,TypeError,ArithmeticError):metrics[key]=None
+    fees_basis=row.get('fees_basis') if _member(row.get('fees_basis'),{'unknown','broker_observed','assumed_virtual_friction'}) else 'unknown'
+    if basis!='broker_reported_accounting' or fees_basis!='broker_observed':metrics['fees']=None
+    try:costs=_number(row.get('assumed_costs'),nonnegative=True)
+    except (ValueError,TypeError,ArithmeticError):costs=None
+    result.update(performance=metrics,performance_basis=basis,performance_as_of=performance_at,
+        performance_reference=reference,assumed_costs=costs,fees_basis=fees_basis)
+    return result
+
+def _employee_runtime(item,row,now):
+    basis=row.get('runtime_basis') if _member(row.get('runtime_basis'),RUNTIME_BASES) else 'responsibility_record_only'
+    freshness=row.get('runtime_freshness') if _member(row.get('runtime_freshness'),{'current','stale','unverified'}) else 'unverified'
+    at=_epoch(row.get('runtime_evidence_as_of'));due=_epoch(row.get('runtime_due_at'))
+    task=_token(row.get('last_task_reference'))
+    if now is not None and any(value is not None and value>now for value in (item['heartbeat'],item['updated_at'],at)):
+        item['state']='stale';freshness='unverified';basis='future_clock'
+    elif item['state']=='running':
+        freshness='unverified';basis='recorded_heartbeat_not_worker_attestation'
+        if now is not None and item['heartbeat'] is not None and now-item['heartbeat']>60:item['state']='stale'
+    elif basis=='controller_handled_responsibility' and freshness=='current':
+        if at is None or task is None:freshness='unverified'
+        elif now is not None and due is not None and now>=due:
+            item['state']='stale';freshness='stale';basis='scheduled_task_overdue'
+        elif now is not None and now-at>45:
+            item['state']='stale';freshness='stale';basis='controller_heartbeat_overdue'
+    elif (now is not None and item['heartbeat'] is not None and now-item['heartbeat']>60
+            and item['next_trigger'] in {'health_check','startup'}):
+        item['state']='stale';freshness='stale';basis='expected_heartbeat_overdue'
+    elif freshness=='current':freshness='unverified'
+    item.update(runtime_freshness=freshness,runtime_basis=basis,runtime_evidence_as_of=at,
+        runtime_due_at=due,last_task_reference=task)
+
+def _compatible_public_projection(snapshot, normalized):
+    """Retain exact old feed bytes while allowing readers to add unknown fields."""
+    traders=snapshot.get('traders')
+    legacy=(type(traders) is list and len(traders)==len(TRADERS)
+            and all(type(row) is dict and set(row)==LEGACY_TRADER_KEYS for row in traders))
+    if not legacy:return normalized,_traders(snapshot['employees'])
+    added=(set(unknown())-{'strategy_version','performance'})|{
+        'runtime_freshness','runtime_basis','runtime_evidence_as_of','runtime_due_at','last_task_reference'}
+    if any(type(row) is not dict or set(row)&added for row in snapshot['employees']):
+        raise ValueError('Mixed legacy and current employee schema')
+    expected=[{key:value for key,value in row.items() if key in LEGACY_TRADER_KEYS}
+              for row in _traders(normalized['employees'])]
+    normalized=json.loads(json.dumps(normalized))
+    for row in normalized['employees']:
+        for key in added:row.pop(key,None)
+    return normalized,expected
+# END canonical public evidence helpers
+
+
 def sanitize_operations(operations, *, now=None):
     """Allowlist public evidence. Never forward logs, inputs, messages or broker records."""
     operations = operations if isinstance(operations, dict) else {}
@@ -96,27 +227,35 @@ def sanitize_operations(operations, *, now=None):
         task = _token(row.get('current_task'))
         if state == 'running' and (heartbeat is None or task is None):
             state = 'unverified'
-        if now is not None and heartbeat is not None and (heartbeat > now or now - heartbeat > 60):
-            state = 'stale'
         digest = row.get('last_useful_result')
         item.update(state=state, current_task=task,
                     last_useful_result=digest if isinstance(digest, str) and DIGEST.fullmatch(digest) else None,
                     next_trigger=row.get('next_trigger') if _member(row.get('next_trigger'), TRIGGERS) else None,
                     heartbeat=heartbeat, blocker=row.get('blocker') if _member(row.get('blocker'), BLOCKERS) else None,
                     updated_at=_epoch(row.get('updated_at')))
-        item['performance'] = {key: None for key in ('realized_pnl', 'unrealized_pnl', 'drawdown', 'exposure', 'fees', 'sample_size')}
+        item.update(_employee_evidence(row,now));_employee_runtime(item,row,now)
         result['employees'].append(item)
     for row in _rows(operations.get('workflows')):
         if not isinstance(row, dict) or not _member(row.get('kind'), GRAPHS):
             continue
         kind = row['kind']
-        if (not _token(row.get('run_id')) or not _member(row.get('node'), GRAPHS[kind])
+        observer = (type(row.get('version')) is int and row['version'] == 2
+                    and row.get('mode') == OBSERVATION_MODE and row.get('execution_authorized') is False
+                    and kind in OBSERVATION_GRAPHS)
+        recovery = (type(row.get('version')) is int and row['version'] == 3
+                    and kind == 'incident' and row.get('mode') == RECOVERY_MODE
+                    and row.get('execution_authorized') is False)
+        canary = (type(row.get('version')) is int and row['version'] == 3
+                  and kind == 'improvement' and row.get('mode') == CANARY_MODE
+                  and row.get('execution_authorized') is False)
+        nodes = OBSERVATION_GRAPHS[kind] if observer else GRAPHS[kind]
+        if (not _token(row.get('run_id')) or not _member(row.get('node'), nodes)
                 or not _member(row.get('status'), GRAPH_STATES) or type(row.get('version')) is not int
-                or row['version'] != 1):
+                or not (row['version'] == 1 or observer or recovery or canary)):
             continue
         history = []
         for event in _rows(row.get('history'), 100):
-            if (isinstance(event, dict) and _member(event.get('node'), GRAPHS[kind])
+            if (isinstance(event, dict) and _member(event.get('node'), nodes)
                     and _member(event.get('outcome'), OUTCOMES) and _epoch(event.get('at')) is not None):
                 history.append({key: event[key] for key in ('node', 'outcome', 'at')})
         artifacts = [d for d in _rows(row.get('artifact_digests'), 100)
@@ -124,6 +263,20 @@ def sanitize_operations(operations, *, now=None):
         item = {key: row[key] for key in ('run_id', 'kind', 'version', 'status', 'node')}
         item.update(updated_at=_epoch(row.get('updated_at')), deadline_at=_epoch(row.get('deadline_at')),
                     artifact_digests=artifacts, history=history)
+        if observer:
+            evidence = _epoch(row.get('evidence_as_of'))
+            state = row.get('current_evidence') if _member(row.get('current_evidence'), {'current', 'stale', 'unverified'}) else 'unverified'
+            if evidence is None or now is not None and evidence > now:
+                evidence = None
+                state = 'unverified'
+            elif now is not None:
+                state = 'stale' if now-evidence > (60 if kind == 'trading' else 600) else 'current'
+            item.update(mode=OBSERVATION_MODE, execution_authorized=False,
+                        evidence_as_of=evidence, current_evidence=state)
+        elif recovery:
+            item.update(mode=RECOVERY_MODE, execution_authorized=False)
+        elif canary:
+            item.update(mode=CANARY_MODE, execution_authorized=False)
         result['workflows'].append(item)
     result['improvements'] = [dict(row) for row in result['workflows'] if row['kind'] == 'improvement']
     for row in _rows(operations.get('incidents')):
@@ -155,12 +308,12 @@ def validate_public_snapshot(snapshot):
         raise ValueError('Operational requires current observed evidence')
     if snapshot['snapshot_at'] is not None:
         _timestamp(snapshot['snapshot_at'])
-    normalized = sanitize_operations(snapshot)
+    normalized,traders = _compatible_public_projection(snapshot,sanitize_operations(snapshot))
     if any(snapshot[key] != normalized[key] for key in normalized):
         raise ValueError('Unexpected public operations fields')
     if snapshot['stages'] != _stages():
         raise ValueError('Invalid static graph definition')
-    if snapshot['traders'] != _traders(snapshot['employees']):
+    if snapshot['traders'] != traders:
         raise ValueError('Unverified trader scorecard')
     if snapshot['reporting'] != {'coordinator': 'Sug', 'delivery_connection': 'unverified'}:
         raise ValueError('Unverified reporting connection')
@@ -178,10 +331,8 @@ def _traders(employees):
     for row in TRADERS:
         employee = by_id.get(row['employee_id'], {})
         traders.append({**row, 'state': employee.get('state', 'unverified'),
-                        'strategy_version': employee.get('strategy_version'),
                         'approved_universe': employee.get('approved_universe'),
-                        'performance': {key: None for key in
-                            ('realized_pnl', 'unrealized_pnl', 'drawdown', 'exposure', 'fees', 'sample_size')}})
+                        **{key:employee.get(key,value) for key,value in unknown().items()}})
     return traders
 
 
@@ -424,15 +575,6 @@ def export_package(directory):
     return directory
 
 
-
-def configured_public_feed(environment=None):
-    """Use fixed approved defaults only when neither setting is explicitly present."""
-    environment = os.environ if environment is None else environment
-    if 'PUBLIC_STATUS_URL' not in environment and 'PUBLIC_STATUS_URL_TEMPLATE' not in environment:
-        return STATUS_LATEST_URL, STATUS_URL_TEMPLATE
-    return environment.get('PUBLIC_STATUS_URL'), environment.get('PUBLIC_STATUS_URL_TEMPLATE')
-
-
 def main():
     import streamlit as st
 
@@ -443,8 +585,8 @@ def main():
 
     @st.fragment(run_every='30s')
     def reporting_view():
-        url, template = configured_public_feed()
-        snapshot, status = load_public_snapshot(url, url_template=template,
+        snapshot, status = load_public_snapshot(os.environ.get('PUBLIC_STATUS_URL'),
+                         url_template=os.environ.get('PUBLIC_STATUS_URL_TEMPLATE'),
                          cache=st.session_state['public_snapshot_cache'], now=datetime.now(UTC))
         if status == 'remote_unavailable_last_verified':
             st.warning('Reporting feed unavailable. Showing the last verified public snapshot; current engine state is unknown.')
