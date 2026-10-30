@@ -552,6 +552,11 @@ def render_document(snapshot, page='home', *, assets=None):
     css = (assets / 'styles.css').read_text()
     script = (assets / 'app.js').read_text()
     payload = json.dumps(snapshot, sort_keys=True).replace('</', r'<\/')
+    cadence = ('<p id="reporting-cadence" class="rail-note">Public reports are scheduled hourly. '
+               'The report timestamp shows when the data was observed; freshness is assessed separately. '
+               'Operational status can become stale between reports.</p>')
+    html = html.replace('<main id="operations">', '<main id="operations">' + cadence, 1)
+    html = html.replace('<span>LATEST UPDATE</span>', '<span>REPORT AS OF</span>', 1)
     html = html.replace('data-page="__PAGE__"', f'data-page="{page}"')
     html = html.replace('<link rel="stylesheet" href="styles.css">', f'<style>{css}</style>')
     return html.replace('<script src="app.js"></script>', f'<script>window.BLITZWERK_DATA={payload};</script><script>{script}</script>')
