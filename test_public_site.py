@@ -1,4 +1,7 @@
 import json
+
+import pytest
+
 import streamlit_app
 
 
@@ -92,3 +95,22 @@ def test_company_identity_is_quantitative_trading_technology():
     assert "US AI quantitative trading technology company" in document
     assert "Current systems remain in validation with simulated broker orders" in document
     assert "PAPER RESEARCH PLATFORM" not in document
+
+
+@pytest.mark.parametrize('fault',[None,'authority','mode','kind'])
+def test_finite_canary_view_retains_only_exact_non_authorizing_public_contract(fault):
+    row={'run_id':'public-canary-view','kind':'improvement','version':3,'status':'waiting',
+        'node':'paper_canary','updated_at':1,'deadline_at':2,'history':[],'artifact_digests':[],
+        'mode':'finite_closed_session_canary','execution_authorized':False}
+    if fault=='authority':row['execution_authorized']=True
+    elif fault=='mode':row['mode']='unverified'
+    elif fault=='kind':row['kind']='incident'
+    value=streamlit_app.sanitize_operations({'workflows':[row]},now=1)
+    if fault:assert value['workflows']==[]
+    else:
+        assert value['workflows'][0]['mode']=='finite_closed_session_canary'
+        assert value['workflows'][0]['execution_authorized'] is False
+        snapshot=streamlit_app.load_local_snapshot();snapshot.update(value)
+        assert streamlit_app.validate_snapshot(snapshot)==snapshot
+        document=streamlit_app.render_document(snapshot)
+        assert 'Controlled PAPER canary' in document
