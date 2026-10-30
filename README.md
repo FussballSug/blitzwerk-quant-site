@@ -10,8 +10,18 @@ Run `streamlit run streamlit_app.py`. The bundled `assets/snapshot.json` is the
 fallback. Its original observation timestamp determines freshness; missing metrics
 remain UNKNOWN. A role name or workflow definition is not deployed activity.
 
-An approved administrator may configure `PUBLIC_STATUS_URL` to an existing,
-credential-free HTTPS JSON endpoint serving the exact version 2 public schema.
+When both `PUBLIC_STATUS_URL` and `PUBLIC_STATUS_URL_TEMPLATE` are absent, this
+renderer reads only the fixed existing `FussballSug/blitzwerk-quant-site`
+`status-data` current-UTC-slot URL and its `latest.json` fallback described below.
+This source-only default requires no interactive hosting configuration. Publish
+and verify the truthful initial slot before enabling it, to avoid requesting an
+unpublished path and priming a negative cache.
+
+An explicit setting keeps the existing configuration behavior: `PUBLIC_STATUS_URL`
+alone selects its validated credential-free HTTPS JSON endpoint, while an explicit
+empty setting preserves local-only fallback. Invalid or mixed settings fail closed
+and are never silently replaced by defaults. Every endpoint serves the exact
+version 2 public schema. No credential, writer, schedule or account is added.
 The app uses a five-second network timeout, a 64 KiB response limit, no redirects,
 30-second refresh while viewed, and a session-memory cache of the last valid
 snapshot. A malformed, oversized or unreachable feed cannot replace that cache.
