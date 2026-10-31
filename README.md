@@ -49,3 +49,46 @@ propagation still need measurement; there is no 60-second propagation guarantee.
 The reader contains no Git writer or credential. The private engineering
 proposal limits a candidate writer to 168 lifetime slots and requires separate
 activation and headless-authentication acceptance; none is started by this package.
+
+## Static report in the same repository
+
+`python build_static.py --output _site` creates a self-contained `index.html`
+and a build receipt. It uses this renderer's existing validator, roster, scorecards,
+workflow graphs and styles. Build time is never substituted for observation time.
+The bundled fallback is the already public, verified October 31 05:00 UTC report.
+The page ages that report when viewed, so a stopped publisher remains visibly stale.
+JavaScript must be enabled for the dashboard; its initial warning remains unverified
+until the reader renders a validated snapshot.
+
+The browser reads only the existing `status-data` current-hour and latest URLs,
+with the same two-request, five-second, 64 KiB, no-redirect limits. Requests omit
+credentials. A failed current-hour read forces the latest fallback stale. Invalid,
+future or older data cannot replace the last valid memory cache. No browser storage,
+writer, operational control, background keepalive or additional publisher is added.
+The existing 30-second refresh runs only while the page is open. Existing 600-second
+report, 45-second controller and 60-second heartbeat/evidence thresholds remain.
+An hourly snapshot will normally become stale before the next hourly report.
+
+The `Static public report` workflow tests and builds on PRs and main pushes using
+standard public GitHub-hosted runners. **Deployment runs only on an explicit
+workflow dispatch from main**, after Pages is configured for GitHub Actions.
+Merging the code alone neither enables Pages nor deploys it. No schedule or workflow
+is added to the JSON-only `status-data` branch. The published page reads subsequent
+JSON updates without a site rebuild. GitHub documents Pages for public repositories
+on its free tier; this is an informational project report with no transactions or
+paid-hosting settings. Apply `docs/AUTOMATED_ENGINEERING.md` in the engineering repo
+for independent review and actual post-deployment URL/readback verification.
+
+The proposed URL is `https://fussballsug.github.io/blitzwerk-quant-site/`.
+The existing `https://blitzwerk-quant.streamlit.app/` entry remains compatible and
+unchanged; the static report links back to it. A static mirror cannot redirect a
+sleeping Streamlit host. Deployment and user-facing primary-link adoption are
+separate from implementation/CI. The engineering export does not yet include these
+static files: preserve them when updating this public mirror.
+
+Local checks: `python -m pytest -q` and
+`node --test test_static_feed.cjs test_static_document.cjs` (Python 3.12, Node 24).
+Python/JavaScript parity includes real public evidence, synthetic strategy metrics,
+workflow variants and the unchanged freshness boundaries. No Streamlit dependency
+is needed to build or test the static report; the existing Streamlit requirement
+continues to serve the existing hosted app.

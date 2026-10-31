@@ -165,6 +165,7 @@ def test_finite_canary_view_retains_only_exact_non_authorizing_public_contract(f
         assert value['workflows'][0]['mode']=='finite_closed_session_canary'
         assert value['workflows'][0]['execution_authorized'] is False
         snapshot=streamlit_app.load_local_snapshot();snapshot.update(value)
+        snapshot["traders"]=streamlit_app._traders(snapshot["employees"])
         assert streamlit_app.validate_snapshot(snapshot)==snapshot
         document=streamlit_app.render_document(snapshot)
         assert 'Controlled PAPER canary' in document
