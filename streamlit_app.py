@@ -5,6 +5,7 @@ read-only reporting, with no broker, credentials, operational controls or LLM.
 Development follows docs/AUTOMATED_ENGINEERING.md; deployment remains separate.
 """
 import argparse
+import importlib.util
 import ipaddress
 import json
 import math
@@ -295,7 +296,9 @@ def sanitize_operations(operations, *, now=None):
 
 def validate_public_snapshot(snapshot):
     """Fail closed before publication/rendering; return the validated original object."""
-    if not isinstance(snapshot, dict) or set(snapshot) != PUBLIC_KEYS or (type(snapshot.get('schema_version')) is not int or snapshot.get('schema_version') != 2):
+    if not isinstance(snapshot, dict) or type(snapshot.get('schema_version')) is not int or snapshot['schema_version'] not in (2, 3):
+        raise ValueError('Unexpected public snapshot schema')
+    if set(snapshot) != (PUBLIC_KEYS | {'activity'} if snapshot['schema_version'] == 3 else PUBLIC_KEYS):
         raise ValueError('Unexpected public snapshot schema')
     if (not _member(snapshot.get('freshness'), {'current', 'stale', 'unverified'})
             or snapshot.get('mode') != 'paper research'
@@ -317,6 +320,10 @@ def validate_public_snapshot(snapshot):
         raise ValueError('Unverified trader scorecard')
     if snapshot['reporting'] != {'coordinator': 'Sug', 'delivery_connection': 'unverified'}:
         raise ValueError('Unverified reporting connection')
+    if snapshot['schema_version'] == 3:
+        _render_helper('public_activity_projection').validate_activity(snapshot['activity'])
+        if len(json.dumps(snapshot, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()) > MAX_BYTES:
+            raise ValueError('Bounded total public snapshot required')
     return snapshot
 
 
@@ -340,6 +347,8 @@ def refresh_public_snapshot(snapshot, *, now=None):
     validate_public_snapshot(snapshot)
     now = (now or datetime.now(UTC)).astimezone(UTC)
     result = json.loads(json.dumps(snapshot))
+    if result['schema_version'] == 3:
+        _render_helper('public_activity_projection').validate_activity(result['activity'], now=now)
     if result['snapshot_at'] is not None:
         age = (now - _timestamp(result['snapshot_at'])).total_seconds()
         if age < 0:
@@ -407,6 +416,28 @@ def _assets():
     return ASSETS if ASSETS.is_dir() else Path(__file__).parents[1] / 'owner-dashboard/dist'
 
 
+def _render_assets():
+    return ASSETS if ASSETS.is_dir() else Path(__file__).with_name('activity_assets')
+
+
+def _render_helper(name):
+    # Resolve fixed sibling code without changing the caller's global import path.
+    if name not in ('public_activity', 'team_flow', 'public_activity_projection'):
+        raise ValueError('Fixed public rendering helper required')
+    path = Path(__file__).with_name(name + '.py')
+    spec = importlib.util.spec_from_file_location('_blitzwerk_public_' + name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _activity_asset(assets, name):
+    if name not in ('activity.js', 'activity.json', 'team_flow.js'):
+        raise ValueError('Fixed public activity asset required')
+    candidate = Path(assets) / name
+    return candidate if candidate.exists() else Path(__file__).with_name('activity_assets') / name
+
+
 def public_url(value):
     """Explicit credential-free HTTPS endpoint; redirects and private literals denied."""
     if not isinstance(value, str) or not 1 <= len(value) <= 2048:
@@ -466,6 +497,8 @@ def load_local_snapshot(path=None, *, now=None):
 def _observed_time(snapshot, *, now):
     """Validate cached/remote observation time without treating receipt as health."""
     validate_snapshot(snapshot)
+    if snapshot['schema_version'] == 3:
+        _render_helper('public_activity_projection').validate_activity(snapshot['activity'], now=now)
     observed = _timestamp(snapshot['snapshot_at']) if snapshot['snapshot_at'] is not None else None
     if observed is not None and observed > now:
         raise ValueError('Future public observation rejected')
@@ -523,6 +556,9 @@ def load_public_snapshot(url=None, *, url_template=None, cache=None, fetch=None,
                 raise ValueError('Current slot has no verified observation')
             if retained_at is not None and (observed is None or observed < retained_at):
                 raise ValueError('Public observation would regress cached evidence')
+            if (retained is not None and retained['schema_version'] == 3
+                    and (snapshot['schema_version'] != 3 or _timestamp(snapshot['activity']['collected_at']) < _timestamp(retained['activity']['collected_at']))):
+                raise ValueError('Public activity would regress cached evidence')
             result = refresh_public_snapshot(snapshot, now=now)
             cache['snapshot'] = json.loads(json.dumps(snapshot))
             if fallback:
@@ -545,17 +581,17 @@ def load_public_snapshot(url=None, *, url_template=None, cache=None, fetch=None,
 
 
 def render_document(snapshot, page='home', *, assets=None):
-    from public_activity import read_ledger
-    from team_flow import scene, svg
+    read_ledger = _render_helper('public_activity').read_ledger
+    flow_helper = _render_helper('team_flow')
     validate_snapshot(snapshot)
-    assets = Path(assets) if assets is not None else _assets()
+    assets = Path(assets) if assets is not None else _render_assets()
     page = page if page in PAGES else 'home'
     html = (assets / 'index.html').read_text()
     css = (assets / 'styles.css').read_text()
-    activity = read_ledger(assets / 'activity.json')
-    flow = scene(CATALOG)
-    html = html.replace('<!--TEAM_FLOW-->', svg(flow))
-    script = '\n'.join((assets / name).read_text() for name in ('activity.js', 'team_flow.js', 'app.js'))
+    activity = read_ledger(_activity_asset(assets, 'activity.json'))
+    flow = flow_helper.scene(CATALOG)
+    html = html.replace('<!--TEAM_FLOW-->', flow_helper.svg(flow))
+    script = '\n'.join([_activity_asset(assets, name).read_text() for name in ('activity.js', 'team_flow.js')] + [(assets / 'app.js').read_text()])
     payload = json.dumps(snapshot, sort_keys=True).replace('</', r'<\/')
     activity_payload = json.dumps(activity, sort_keys=True).replace('</', r'<\/')
     flow_payload = json.dumps(flow, sort_keys=True).replace('</', r'<\/')
@@ -569,18 +605,37 @@ def render_document(snapshot, page='home', *, assets=None):
     return html.replace('<script src="app.js"></script>', f'<script>window.BLITZWERK_DATA={payload};</script><script>window.BLITZWERK_ACTIVITY={activity_payload};window.BLITZWERK_FLOW={flow_payload};{script}</script>')
 
 
-def export_package(directory):
+STATIC_EXPORT_FILES = (
+    '.github/workflows/static-site.yml', '.gitignore', 'build_static.py', 'static_feed.js',
+    'test_public_site.py', 'test_report_notice.py', 'test_public_parity.py',
+    'test_static_site.py', 'test_static_feed.cjs', 'test_static_document.cjs',
+    'test_fixtures/observed_public_snapshot.json',
+    'public_activity.py', 'public_activity_projection.py', 'test_activity_projection.py', 'team_flow.py', 'test_activity.py', 'test_activity.cjs',
+    'test_flow.py', 'test_flow.cjs',
+)
+
+
+def export_package(directory, *, public_snapshot=None):
     """Prepare the existing mirror layout locally, never push or deploy."""
     directory = Path(directory)
     if directory.is_symlink() or not directory.is_dir() or any(directory.iterdir()):
         raise ValueError('Empty existing package directory required')
+    # Keep the legacy fixture unless explicit, validated public bytes are supplied.
+    raw = (_assets() / 'snapshot.json').read_bytes() if public_snapshot is None else public_snapshot
+    _observed_time(_decode(raw), now=datetime.now(UTC))
+    _render_helper('public_activity').read_ledger(_activity_asset(_assets(), 'activity.json'))
     assets = directory / 'assets'
     assets.mkdir()
-    for name in ('index.html', 'styles.css', 'app.js', 'snapshot.json', 'activity.js', 'activity.json', 'team_flow.js'):
-        shutil.copyfile(_assets() / name, assets / name)
+    for name in ('index.html', 'styles.css', 'app.js'):
+        shutil.copyfile(_render_assets() / name, assets / name)
+    (assets / 'snapshot.json').write_bytes(raw)
+    for name in ('activity.js', 'activity.json', 'team_flow.js'):
+        shutil.copyfile(_activity_asset(_assets(), name), assets / name)
+    for name in STATIC_EXPORT_FILES:
+        destination = directory / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(Path(__file__).parent / name, destination)
     shutil.copyfile(__file__, directory / 'streamlit_app.py')
-    shutil.copyfile(Path(__file__).with_name('public_activity.py'), directory / 'public_activity.py')
-    shutil.copyfile(Path(__file__).with_name('team_flow.py'), directory / 'team_flow.py')
     source = Path(__file__).parents[1]
     shutil.copyfile(source / 'requirements.txt', directory / 'requirements.txt')
     shutil.copyfile(Path(__file__).with_name('README.md'), directory / 'README.md')
@@ -601,6 +656,7 @@ def main():
     import streamlit as st
 
     st.set_page_config(page_title='Blitzwerk Kapital', page_icon='⚡', layout='wide', initial_sidebar_state='collapsed')
+    st.markdown('Secondary view · [Main website](https://fussballsug.github.io/blitzwerk-quant-site/)')
     st.markdown('<style>#MainMenu,header,footer{visibility:hidden}.block-container{padding:0;max-width:none}</style>', unsafe_allow_html=True)
     if 'public_snapshot_cache' not in st.session_state:
         st.session_state['public_snapshot_cache'] = {}
@@ -620,8 +676,16 @@ def main():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Read-only public mirror')
     parser.add_argument('--export-directory')
+    parser.add_argument('--public-snapshot', type=Path,
+                        help='Explicit already-sanitized public fallback to retain during export')
     args, _unknown = parser.parse_known_args()
+    if args.public_snapshot and not args.export_directory:
+        parser.error('--public-snapshot requires --export-directory')
     if args.export_directory:
-        export_package(args.export_directory)
+        raw = None
+        if args.public_snapshot:
+            with args.public_snapshot.open('rb') as source:
+                raw = source.read(MAX_BYTES + 1)
+        export_package(args.export_directory, public_snapshot=raw)
     else:
         main()

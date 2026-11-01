@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const {execFileSync} = require('node:child_process');
 const {createStaticReader} = require('./static_feed.js');
 const schema=JSON.parse(execFileSync(process.env.PYTHON || 'python3',['build_static.py','--schema'],{encoding:'utf8'}));
-const original=JSON.parse(fs.readFileSync('assets/snapshot.json','utf8'));
+const original=JSON.parse(fs.readFileSync('test_fixtures/observed_public_snapshot.json','utf8'));
 const at=Date.parse(original.snapshot_at);
 const copy=x=>JSON.parse(JSON.stringify(x));
 const response=value=>new Response(JSON.stringify(value));
@@ -69,4 +69,11 @@ test('deadline abort reaches stalled response body and retains cached snapshot',
 test('malformed UTF8 cannot replace the cache',async()=>{
  const value=await reader({fetch:async()=>new Response(new Uint8Array([0xc3,0x28]))}).load();
  assert.equal(value.snapshot_at,original.snapshot_at);assert.equal(value.freshness,'stale');
+});
+test('bundled legacy or observed fallback validates without inventing an observation',()=>{
+ const fallback=JSON.parse(fs.readFileSync('assets/snapshot.json','utf8'));
+ const r=createStaticReader({schema,initial:fallback,now:()=>Date.parse('2026-10-31T23:00:00Z')});
+ assert.deepEqual(r.validate(fallback),fallback);
+ assert.equal(r.refresh(fallback).snapshot_at,fallback.snapshot_at);
+ if(fallback.snapshot_at===null)assert.equal(r.refresh(fallback).freshness,'unverified');
 });

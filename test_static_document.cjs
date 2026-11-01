@@ -7,7 +7,7 @@ for(const [initialFragment,interaction] of [['',''],['#flow',''],['#flow','wheel
  const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'blitzwerk-static-test-'));
  try{
   const output=path.join(temporary,'site');
-  execFileSync(process.env.PYTHON||'python3',['build_static.py','--output',output]);
+  execFileSync(process.env.PYTHON||'python3',['build_static.py','--snapshot','test_fixtures/observed_public_snapshot.json','--output',output]);
   const html=fs.readFileSync(path.join(output,'index.html'),'utf8');
   const elements=new Map();
   function element(id=''){
@@ -21,7 +21,7 @@ for(const [initialFragment,interaction] of [['',''],['#flow',''],['#flow','wheel
   const sections=[...html.matchAll(/<section[^>]*\bid="([^"]+)"/g)].map(m=>elements.get(m[1]));
   const intervals=[],requests=[],frames=new Map(),documentListeners={},windowListeners={},scrolls=[],motionPreference={matches:false,listener:null,addEventListener(type,fn){this.listener=fn}};let frameID=0;
   class ObservedDate extends Date{static now(){return Date.parse('2026-11-01T02:00:00Z')}}
-  const context={Date:ObservedDate,Intl,TextDecoder,Uint8Array,AbortController,performance,
+  const context={Date:ObservedDate,Intl,TextDecoder,TextEncoder,Uint8Array,AbortController,performance,
    setTimeout,clearTimeout,setInterval:(callback,ms)=>intervals.push({callback,ms}),location:{hash:initialFragment},scrollY:0,addEventListener:(type,fn)=>windowListeners[type]=fn,scrollTo(value){scrolls.push(value);context.scrollY=value.top},
    requestAnimationFrame:fn=>{const id=++frameID;frames.set(id,fn);return id},cancelAnimationFrame:id=>frames.delete(id),matchMedia:()=>motionPreference,
    fetch:async(url,options)=>{requests.push({url,options});throw Error('synthetic offline')},
@@ -46,11 +46,11 @@ for(const [initialFragment,interaction] of [['',''],['#flow',''],['#flow','wheel
   assert.equal(frames.size,initialFragment&&interaction!=='navigation'?1:0,'only active flow may animate');
   vm.runInContext("showPage('#activity')",context,{timeout:1000});
   assert.equal(elements.get('activity').hidden,false);
-  assert.equal((elements.get('activity-workers').innerHTML.match(/class="activity-worker"/g)||[]).length,15);
+  assert.equal((elements.get('activity-workers').innerHTML.match(/class="activity-worker(?: empty)?"/g)||[]).length,15);
   assert.match(elements.get('activity-asof').textContent,/STALE REPORT/);
   elements.get('activity-worker').listeners.change({target:{value:'sug'}});
-  assert.equal((elements.get('activity-workers').innerHTML.match(/class="activity-worker"/g)||[]).length,1);
-  assert.match(elements.get('activity-workers').innerHTML,/No verified hourly accomplishment/);
+  assert.equal((elements.get('activity-workers').innerHTML.match(/class="activity-worker(?: empty)?"/g)||[]).length,1);
+  assert.match(elements.get('activity-workers').innerHTML,/No result supplied/);
   vm.runInContext("showPage('#flow')",context,{timeout:1000});
   assert.equal(elements.get('flow').hidden,false);assert.equal(frames.size,1);
   assert.match(elements.get('flow-asof').textContent,/PAPER \/ SIMULATED.*Current engine state is unknown/);
@@ -69,5 +69,19 @@ for(const [initialFragment,interaction] of [['',''],['#flow',''],['#flow','wheel
   vm.runInContext("showPage('#team')",context,{timeout:1000});
   assert.equal(frames.size,0);
   assert.equal(elements.get('team').hidden,false);assert.ok(sections.filter(x=>x.id!=='team').every(x=>x.hidden));
+  if(!initialFragment){
+   context.incoming=JSON.parse(execFileSync(process.env.PYTHON||'python3',['-c',"import json; import test_activity_projection as p; from datetime import UTC,datetime; p.NOW=datetime(2026,11,1,1,30,tzinfo=UTC); print(json.dumps(p.sample()))"],{encoding:'utf8'}));
+   vm.runInContext("render(window.BLITZWERK_STATIC.validate(incoming));showPage('#activity')",context,{timeout:1000});
+   assert.match(elements.get('activity-coverage').textContent,/complete query of recorded evidence/);
+   assert.match(elements.get('activity-coverage').textContent,/current UTC hour is partial/);
+   assert.match(elements.get('activity-asof').textContent,/STALE REPORT/);
+   elements.get('activity-worker').listeners.change({target:{value:'all'}});
+   assert.match(elements.get('activity-events').innerHTML,/Reporting reliability/);
+   assert.match(elements.get('activity-events').innerHTML,/Platform.*branch/);
+   assert.doesNotMatch(elements.get('activity-events').innerHTML,/github.com\/FussballSug\/blitzwerk-quant\//);
+   assert.match(elements.get('activity-workers').innerHTML,/0 results/);
+   assert.doesNotMatch(elements.get('activity-workers').innerHTML,/No explicit no-change|This does not establish inactivity|do not establish a connected worker/);
+   assert.equal((elements.get('activity-workers').innerHTML.match(/activity-worker empty/g)||[]).length,15);
+  }
  }finally{fs.rmSync(temporary,{recursive:true,force:true});}
 });

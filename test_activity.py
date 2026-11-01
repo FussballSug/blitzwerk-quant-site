@@ -65,8 +65,8 @@ def test_no_change_requires_an_explicit_evidence_record():
 
 
 def test_generated_pages_share_activity_tab_without_changing_feed_schema(tmp_path):
-    from build_static import build
     import streamlit_app as renderer
+    from build_static import build
     raw = Path('assets/snapshot.json').read_bytes()
     output = tmp_path/'site'
     build(output, raw)
@@ -76,7 +76,7 @@ def test_generated_pages_share_activity_tab_without_changing_feed_schema(tmp_pat
         assert 'href="#activity"' in html and 'id="activity"' in html
         assert 'id="activity-worker"' in html and 'id="activity-hour"' in html
         assert 'id="activity-zone"' in html and 'BLITZWERK_ACTIVITY' in html
-        assert 'No verified hourly accomplishment' in html
+        assert 'No result recorded' in html
     assert 'data-page="activity"' in legacy
     assert set(json.loads(raw)) == renderer.PUBLIC_KEYS
     assert renderer.MAX_BYTES == 65536 and renderer.MAX_FEED_REQUESTS == 2

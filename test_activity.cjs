@@ -1,6 +1,6 @@
 /* Pure evidence and DST tests; no browser/network/worker activity fabricated. */
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createActivityModel}=require('./assets/activity.js');
+const {createActivityModel}=require(require('node:fs').existsSync('./assets/activity.js')?'./assets/activity.js':'./activity_assets/activity.js');
 const catalog={hoffmann:{employee_id:'hoffmann',name:'Stefan Hoffmann'},sug:{employee_id:'sug',name:'Sug'}};
 const model=createActivityModel(catalog);
 const snapshot=()=>({snapshot_at:'2026-11-01T07:05:00Z',freshness:'stale',employees:[],workflows:[]});
@@ -61,4 +61,23 @@ test('future report and future ledger observations do not become verified events
  const data=snapshot();data.snapshot_at='2027-01-01T00:00:00Z';
  const value=model.build(data,{...empty,reviewed_at:'2027-01-01T00:00:00Z'},now);
  assert.equal(value.freshness,'unverified');assert.equal(value.events.length,0);
+});
+
+test('rolling history is independent of old health and reviews received are not worker execution',()=>{
+ const data=snapshot();data.schema_version=3;
+ data.activity={collected_at:'2026-11-01T08:30:00+00:00',coverage:'complete_query',truncated:false,
+ hours:[{hour_start:'2026-11-01T08:00:00+00:00',results:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],controller_results:[0,0,1,0,0,0,0,0,0,0,0,0,0,0,0],reviews_received:[0,0,1,0,0,0,0,0,0,0,0,0,0,0,0],no_change:Array(15).fill(0)}],
+ events:[{event_id:'a'.repeat(64),kind:'review',employee_id:null,subject_employee_id:'hoffmann',observed_at:'2026-11-01T08:10:00+00:00',stage:'accepted',summary_code:'review_accepted',evidence_reference:'b'.repeat(64),source_revision:null,public_reference:null},
+ {event_id:'c'.repeat(64),kind:'controller_result',employee_id:'hoffmann',subject_employee_id:null,observed_at:'2026-11-01T08:05:00+00:00',stage:'recorded',summary_code:'incident_diagnosis_recorded',evidence_reference:'d'.repeat(64),source_revision:null,public_reference:null}]};
+ const value=model.build(data,empty,now),row=model.workerRows(value,'hoffmann','2026-11-01T08:00:00Z')[0];
+ assert.equal(value.freshness,'stale');assert.equal(value.activity_collected_at,data.activity.collected_at);
+ assert.equal(row.counts.results,0);assert.equal(row.counts.controller_results,1);assert.equal(row.counts.reviews_received,1);assert.equal(row.evidence,null);
+ const review=model.filter(value,'hoffmann','all').find(e=>e.kind==='review');assert.equal(review.worker_id,null);assert.equal(review.subject_id,'hoffmann');
+ assert.match(review.summary,/review.*accepted/i);assert.equal(value.partial_hour,'2026-11-01T08:00:00Z');
+});
+test('private platform push has meaningful note but no invented public link or adoption',()=>{
+ const data=snapshot();data.schema_version=3;data.activity={collected_at:'2026-11-01T08:30:00Z',coverage:'partial',truncated:true,hours:[],events:[{event_id:'a'.repeat(64),kind:'engineering',employee_id:null,subject_employee_id:null,observed_at:'2026-11-01T08:20:00Z',stage:'pushed',change_code:'reporting_reliability',repository_code:'platform',release_target:'branch',evidence_reference:'b'.repeat(64),source_revision:'c'.repeat(40),public_reference:null}]};
+ const value=model.build(data,empty,now),event=value.events.find(e=>e.kind==='engineering');
+ assert.equal(event.link,null);assert.equal(event.worker_id,null);assert.match(event.summary,/reporting reliability/i);assert.equal(event.release_target,'branch');assert.equal(event.stage,'pushed');
+ assert.equal(value.coverage,'partial');assert.equal(value.truncated,true);
 });
