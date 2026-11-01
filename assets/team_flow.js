@@ -31,6 +31,18 @@ function verifiedFlowEvents(snapshot,now=Date.now()){
  const freshness=!valid?'unverified':snapshot?.freshness!=='current'||now-at>600000?'stale':'current';
  return {transfers:[],transfer_evidence_available:false,freshness,observations:valid?rows.filter(row=>typeof row.last_useful_result==='string'&&/^[a-f0-9]{64}$/.test(row.last_useful_result)&&typeof row.updated_at==='number'&&Number.isFinite(row.updated_at)&&row.updated_at>0&&row.updated_at*1000<=at).map(row=>({worker_id:row.employee_id,receipt:row.last_useful_result,observed_at:row.updated_at})):[]};
 }
+function workerDetails(row,snapshot,now=Date.now()){
+ const bound=typeof snapshot?.snapshot_at==='string'?Date.parse(snapshot.snapshot_at):NaN;
+ const valid=Number.isFinite(bound)&&bound>0&&bound<=now;
+ const reference=v=>typeof v==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,159}$/.test(v)?v:null;
+ const instant=v=>typeof v==='number'&&Number.isFinite(v)&&v>0&&v*1000<=bound?v:null;
+ const triggers=['startup','market_bar','broker_event','incident','health_check','manager_review','hourly','daily','approved_task','owner_decision'];
+ const blockers=['authority_expired','approval_required','missing_data','stale_data','risk_halt','reconciliation_required','budget_exhausted','delivery_unconnected','service_stopped','dependency','independent_validation_required'];
+ const empty={assignment:null,result:null,resultTask:null,resultRecordAt:null,heartbeat:null,trigger:null,blocker:null,connected:false};
+ if(!valid||!row)return empty;
+ const resultAt=instant(row.updated_at),result=resultAt!==null&&typeof row.last_useful_result==='string'&&/^[a-f0-9]{64}$/.test(row.last_useful_result)?row.last_useful_result:null;
+ return {...empty,assignment:reference(row.current_task),result,resultTask:result?reference(row.last_task_reference):null,resultRecordAt:result?resultAt:null,heartbeat:instant(row.heartbeat),trigger:triggers.includes(row.next_trigger)?row.next_trigger:null,blocker:blockers.includes(row.blocker)?row.blocker:null};
+}
 function mountTeamFlow(document,environment,scene){
  const el=id=>document.getElementById(id),byId=new Map(scene.nodes.map(n=>[n.id,n]));
  let step=0,selected=null,snapshot={},mode='conceptual';
@@ -56,7 +68,10 @@ function mountTeamFlow(document,environment,scene){
   el('flow-role-name').textContent=n?n.name:'The coordination layer';
   el('flow-role-purpose').textContent=n?n.purpose:'Select any role to trace its defined reporting and conceptual evidence handoffs.';
   const row=n?(snapshot.employees||[]).find(e=>e.employee_id===n.id):null;
-  el('flow-role-details').innerHTML=n?`<dl><dt>Reports to</dt><dd>${safe(n.manager==='owner'?'Owner / CEO':byId.get(n.manager)?.name||n.manager)}</dd><dt>Responsibilities</dt><dd>${safe(n.responsibilities.join(', ').replaceAll('_',' '))}</dd><dt>Observed saved state</dt><dd>${safe(row?.state||'No evidence supplied')}</dd><dt>Worker connection</dt><dd>Unverified</dd></dl>`:'<p>Risk and independent validation report to the owner. A review never removes the deterministic risk gate or grants trading authority.</p>';
+  const work=workerDetails(row,snapshot),stamp=at=>new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(at*1000));
+  const triggers={startup:'Startup reconciliation',market_bar:'Next approved market bar',broker_event:'Broker event',incident:'Incident response',health_check:'Next health check',manager_review:'Manager review',hourly:'Hourly work review',daily:'Daily review',approved_task:'Eligible queued task',owner_decision:'Reserved owner decision'};
+  const blockers={authority_expired:'Work authorization expired',approval_required:'Required authorization missing',missing_data:'Required input missing',stale_data:'Fresh input required',risk_halt:'Risk halt remains in force',reconciliation_required:'Reconciliation required',budget_exhausted:'Work budget exhausted',delivery_unconnected:'Reporting delivery disconnected',service_stopped:'Worker service stopped',dependency:'Upstream task incomplete',independent_validation_required:'Independent review required'};
+  el('flow-role-details').innerHTML=n?`<dl><dt>Reports to</dt><dd>${safe(n.manager==='owner'?'Owner / CEO':byId.get(n.manager)?.name||n.manager)}</dd><dt>Saved assignment</dt><dd>${work.assignment?`<code>${safe(work.assignment)}</code>`:'No assignment reported'}</dd><dt>Last recorded result</dt><dd>${work.result?`<code>${safe(work.result)}</code><br>Evidence recorded ${safe(stamp(work.resultRecordAt))}${work.resultTask?`<br>Task: ${safe(work.resultTask)}`:''}`:'No result reported'}</dd><dt>Reported heartbeat</dt><dd>${work.heartbeat?safe(stamp(work.heartbeat)):'No worker check-in recorded'}</dd><dt>Next trigger</dt><dd>${safe(triggers[work.trigger]||'No work trigger reported')}</dd><dt>Blocker</dt><dd>${safe(blockers[work.blocker]||'No blocker recorded')}</dd></dl><p class="rail-note">Saved records above do not establish a connected employee session. Report age is shown above the map.</p>`:'<p>Risk and independent validation report to the owner. A review never removes the deterministic risk gate or grants trading authority.</p>';
   const observations=verified.observations.filter(e=>!selected||e.worker_id===selected);
   el('flow-observations').innerHTML=mode==='verified'?(observations.length?observations.slice(0,15).map(e=>`<article><b>${safe(byId.get(e.worker_id)?.name||'Unassigned')}</b><p>Recorded result reference; not a transfer attestation.</p><code>${safe(e.receipt)}</code></article>`).join(''):'<p>No verified worker result references are supplied for this selection.</p>'):routes.slice(0,8).map(e=>`<p><b>${safe(byId.get(e.source)?.name||'Owner')} → ${safe(byId.get(e.target)?.name||'Owner')}</b><br>${safe(e.label)}<br><small>${safe(e.relationship)}</small></p>`).join('');
   const state=motion.state();el('flow-play').textContent=state.playing?'Pause motion':'Play illustration';el('flow-play').disabled=state.reduced||mode==='verified';
@@ -79,4 +94,4 @@ function mountTeamFlow(document,environment,scene){
  motion.setDocumentVisible(!document.hidden);reduced();
  return Object.freeze({setVisible:value=>motion.setVisible(value),update(value){snapshot=value;update()},dispose:()=>motion.dispose()});
 }
-if(typeof module!=='undefined'&&module.exports)module.exports={createFlowMotion,verifiedFlowEvents,mountTeamFlow};
+if(typeof module!=='undefined'&&module.exports)module.exports={createFlowMotion,verifiedFlowEvents,workerDetails,mountTeamFlow};
