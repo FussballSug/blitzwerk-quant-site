@@ -153,9 +153,40 @@ function createStaticReader({schema:S,initial,fetch:request=globalThis.fetch,now
   }return out;
  }
  function traders(employees){const byId=new Map(employees.map(x=>[x.employee_id,x]));return S.TRADERS.map(row=>{const employee=byId.get(row.employee_id)||{};return {...row,state:employee.state||'unverified',approved_universe:employee.approved_universe??null,...Object.fromEntries(Object.entries(S.unknown).map(([k,v])=>[k,employee[k]===undefined?v:employee[k]]))};});}
+ function validateOperationsCoverage(value){
+  const c=value.operations_coverage,kinds=['trading','improvement','incident','publishing'];
+  const count=n=>typeof n==='number'&&Number.isInteger(n)&&n>=0&&n<=1000000000;
+  const keys=(v,expected)=>object(v)&&equal(Object.keys(v).sort(),expected.slice().sort());
+  require(keys(c,['schema_version','scope','selection','source_counts','queried_counts','displayed_counts','workflow_kinds','history_counts','artifact_reference_counts','query_truncated','display_truncated','partial']));
+  require(c.schema_version===1&&c.scope==='bounded_public_operations'&&c.selection==='latest_per_kind_then_recent');
+  for(const name of ['source_counts','queried_counts','displayed_counts'])require(keys(c[name],['workflows','incidents']));
+  require(keys(c.workflow_kinds,kinds));
+  let unknown=false,queryOmission=false,displayOmission=false,sourceSum=0,allSources=true;
+  const bound=(source,queried,displayed)=>{
+   require((source===null||count(source))&&count(queried)&&count(displayed)&&displayed<=queried&&(source===null||queried<=source));
+   unknown ||= source===null;queryOmission ||= source!==null&&queried<source;displayOmission ||= displayed<queried;
+  };
+  for(const key of ['workflows','incidents']){bound(c.source_counts[key],c.queried_counts[key],c.displayed_counts[key]);require(c.queried_counts[key]<=1000);}
+  require(c.displayed_counts.workflows===value.workflows.length&&c.displayed_counts.incidents===value.incidents.length);
+  let queriedSum=0,displayedSum=0;
+  for(const kind of kinds){
+   const row=c.workflow_kinds[kind];require(keys(row,['source','queried','displayed']));bound(row.source,row.queried,row.displayed);
+   require(row.displayed===value.workflows.filter(w=>w.kind===kind).length);
+   if(row.source===null)allSources=false;else sourceSum+=row.source;
+   queriedSum+=row.queried;displayedSum+=row.displayed;
+  }
+  require(queriedSum<=c.queried_counts.workflows&&displayedSum===c.displayed_counts.workflows);
+  if(c.source_counts.workflows!==null)require(sourceSum<=c.source_counts.workflows&&(!allSources||sourceSum===c.source_counts.workflows));
+  for(const [field,array] of [['history_counts','history'],['artifact_reference_counts','artifact_digests']]){
+   const row=c[field];require(keys(row,['queried','displayed'])&&count(row.queried)&&count(row.displayed)&&row.displayed<=row.queried);
+   require(row.displayed===value.workflows.reduce((n,w)=>n+w[array].length,0));displayOmission ||= row.displayed<row.queried;
+  }
+  for(const flag of ['query_truncated','display_truncated','partial'])require(typeof c[flag]==='boolean');
+  require((!queryOmission||c.query_truncated)&&c.display_truncated===displayOmission&&c.partial===(unknown||c.query_truncated||c.display_truncated));
+ }
  function validate(value){
-  require(object(value)&&[2,3].includes(value.schema_version)&&equal(Object.keys(value).sort(),(value.schema_version===3?[...S.PUBLIC_KEYS,'activity']:S.PUBLIC_KEYS).slice().sort()));
-  if(value.schema_version===3){validateActivity(value.activity);require(asciiJSON(value).length<=MAX);}
+  require(object(value)&&[2,3,4].includes(value.schema_version)&&equal(Object.keys(value).sort(),(value.schema_version===4?[...S.PUBLIC_KEYS,'activity','operations_coverage']:value.schema_version===3?[...S.PUBLIC_KEYS,'activity']:S.PUBLIC_KEYS).slice().sort()));
+  if(value.schema_version>=3){validateActivity(value.activity);require(asciiJSON(value).length<=MAX);}
   require(member(value.freshness,['current','stale','unverified'])&&value.mode==='paper research'&&member(value.desk_state,['status unavailable','status delayed','monitoring','operational','attention','stopped for review','waiting']));
   require(value.freshness==='unverified'||value.snapshot_at!==null);require(value.desk_state!=='operational'||value.freshness==='current');
   if(value.snapshot_at!==null)timestamp(value.snapshot_at);
@@ -164,10 +195,11 @@ function createStaticReader({schema:S,initial,fetch:request=globalThis.fetch,now
   if(legacy){const added=[...Object.keys(S.unknown).filter(k=>!['strategy_version','performance'].includes(k)),'runtime_freshness','runtime_basis','runtime_evidence_as_of','runtime_due_at','last_task_reference'];require(value.employees.every(row=>object(row)&&added.every(k=>!own(row,k))));expected=expected.map(row=>Object.fromEntries(S.LEGACY_TRADER_KEYS.map(k=>[k,row[k]])));for(const row of normalized.employees)for(const k of added)delete row[k];}
   for(const k of Object.keys(normalized))require(equal(value[k],normalized[k]));
   require(equal(value.traders,expected)&&equal(value.stages,S.stages)&&equal(value.reporting,{coordinator:'Sug',delivery_connection:'unverified'}));
+  if(value.schema_version===4)validateOperationsCoverage(value);
   return clone(value);
  }
  function refresh(value,failed=false){
-  if(value.schema_version===3)validateActivity(value.activity,Math.round(now()*1000));
+  if(value.schema_version>=3)validateActivity(value.activity,Math.round(now()*1000));
   const out=validate(value),t=out.snapshot_at===null?null:timestamp(out.snapshot_at),age=t===null?null:Math.round(now()*1000)-t;
   if(age!==null&&age<0){out.freshness='unverified';out.desk_state='status unavailable';}
   else if(failed||(age!==null&&age>600000000)){out.freshness=t===null?'unverified':'stale';out.desk_state=t===null?'status unavailable':'status delayed';}
@@ -191,16 +223,16 @@ function createStaticReader({schema:S,initial,fetch:request=globalThis.fetch,now
   try{for(const [i,url] of [current,BASE+'latest.json'].entries()){
    if(monotonic()>=end||controller.signal.aborted)break;
    try{const value=await bounded(url,end,controller.signal),t=value.snapshot_at===null?null:timestamp(value.snapshot_at),old=cache.snapshot_at===null?null:timestamp(cache.snapshot_at);
-    if(value.schema_version===3)validateActivity(value.activity,Math.round(now()*1000));
+    if(value.schema_version>=3)validateActivity(value.activity,Math.round(now()*1000));
     require(t!==null&&t<=Math.round(now()*1000)&&(old===null||t>=old));if(i===0)require(Math.floor(t/3600000000)===Math.floor(start/3600000));
-    if(cache.schema_version===3)require(value.schema_version===3&&timestamp(value.activity.collected_at)>=timestamp(cache.activity.collected_at));
+    if(cache.schema_version>=3)require(value.schema_version>=cache.schema_version&&timestamp(value.activity.collected_at)>=timestamp(cache.activity.collected_at));
     cache=value;return refresh(cache,i!==0);
    }catch{}
   }try{return refresh(cache,true);}catch(error){
    // A backward local clock must not leave an old green render on screen.
    // Keep cached bytes; omit future activity only from this failed view.
-   if(cache.schema_version!==3)throw error;
-   const base=clone(cache);delete base.activity;base.schema_version=2;return refresh(base,true);
+   if(cache.schema_version<3)throw error;
+   const base=clone(cache);delete base.activity;delete base.operations_coverage;base.schema_version=2;return refresh(base,true);
   }}finally{clearTimer(timer);}
  }
  function load(){if(!pending)pending=run().finally(()=>{pending=null;});return pending;}
