@@ -31,8 +31,8 @@ No remote endpoint or upload authority is created by setting a local file.
 
 Prepare a package from the engineering checkout with
 `python site/public_mirror/streamlit_app.py --export-directory <empty-directory>`.
-Only the fixed asset allowlist, this renderer, pinned requirements and this README
-are copied. Packaging does not push, deploy, connect a feed or verify a public URL.
+Only fixed public assets, this renderer, pinned requirements, static support,
+public tests/workflow and this README are copied. Packaging does not push, deploy, connect a feed or verify a public URL.
 Apply the engineering repository's `docs/AUTOMATED_ENGINEERING.md` for review and
 operational acceptance. The owner's actual Sug delivery connection remains
 unverified until separately configured and tested.
@@ -55,8 +55,13 @@ activation and headless-authentication acceptance; none is started by this packa
 `python build_static.py --output _site` creates a self-contained `index.html`
 and a build receipt. It uses this renderer's existing validator, roster, scorecards,
 workflow graphs and styles. Build time is never substituted for observation time.
-The bundled fallback is the already public, verified October 31 05:00 UTC report.
-The page ages that report when viewed, so a stopped publisher remains visibly stale.
+Default exports retain the legacy unverified fallback. To preserve a newer already
+public snapshot, explicitly pass `--public-snapshot <retained-public-json>` to the
+export command. The bounded strict validator rejects private fields and future
+observations before any output is written; exact accepted bytes are retained. The
+exporter never fetches data or overwrites an existing public checkout. Copy the
+reviewed package only through the normal source/deployment review process. The page
+ages every report when viewed, so a stopped publisher remains visibly stale.
 JavaScript must be enabled for the dashboard; its initial warning remains unverified
 until the reader renders a validated snapshot.
 
@@ -79,15 +84,17 @@ on its free tier; this is an informational project report with no transactions o
 paid-hosting settings. Apply `docs/AUTOMATED_ENGINEERING.md` in the engineering repo
 for independent review and actual post-deployment URL/readback verification.
 
-The proposed URL is `https://fussballsug.github.io/blitzwerk-quant-site/`.
+The existing static URL is `https://fussballsug.github.io/blitzwerk-quant-site/`.
 The existing `https://blitzwerk-quant.streamlit.app/` entry remains compatible and
-unchanged; the static report links back to it. A static mirror cannot redirect a
+available as a secondary view with a link to the primary website. A static mirror cannot redirect a
 sleeping Streamlit host. Deployment and user-facing primary-link adoption are
-separate from implementation/CI. The engineering export does not yet include these
-static files: preserve them when updating this public mirror.
+separate from implementation/CI. The engineering export includes the static support and workflow by a fixed
+allowlist. `test_fixtures/observed_public_snapshot.json` is historical already-public
+October31 evidence used only by tests; it never becomes the runtime fallback
+unless explicitly selected. The legacy source fixture is preserved.
 
 Local checks: `python -m pytest -q` and
-`node --test test_static_feed.cjs test_static_document.cjs` (Python 3.12, Node 24).
+`node --test test_static_feed.cjs test_static_document.cjs test_activity.cjs test_flow.cjs` (Python 3.12, Node 24).
 Python/JavaScript parity includes real public evidence, synthetic strategy metrics,
 workflow variants and the unchanged freshness boundaries. No Streamlit dependency
 is needed to build or test the static report; the existing Streamlit requirement
@@ -132,3 +139,31 @@ Additional local checks: `node --test test_activity.cjs test_flow.cjs`; all Node
 checks use `PYTHON=/path/to/python3.12` when the default interpreter is older.
 Apply the private engineering repository's `docs/AUTOMATED_ENGINEERING.md` for
 independent source review, required CI and actual deployment/readback acceptance.
+
+The authoritative mirror stores the reviewed UI and activity assets in
+`activity_assets/`; exports assemble them into `assets/` alongside the preserved
+legacy snapshot, or the existing explicitly supplied validated public snapshot.
+The existing private dashboard UI and legacy snapshot remain byte-for-byte unchanged.
+Rendering helpers resolve fixed sibling modules without altering the import path.
+
+Rolling evidence compatibility: this reader accepts both legacy schema2 reports
+and schema3 reports with a bounded `activity` envelope. The existing two fixed
+feed URLs, shared five-second fetch deadline, 64 KiB total response bound, and
+600/45/60-second operational freshness rules are unchanged. The extra envelope
+holds at most48 combined hour/detail records and24 KiB; counts may outlive
+trimmed detail records, which are labeled. Activity collection time does not
+refresh operational health. UTC hour keys distinguish the repeated Chicago DST
+hour, and the current hour is partial.
+
+`complete_query` means a complete query of recorded evidence within the bounded
+window, not all work or verified worker connectivity. Missing historical source
+receipts remain partial coverage. Reviews received by a task owner do not credit
+that owner with performing a review. Historical unmapped roles remain anonymous.
+Engineering events use reviewed categories and exact observed stages; private
+platform branch pushes expose only the sanitized repository code and source hash,
+never a private URL. Branch presence does not establish merge or runtime adoption.
+The explicit completion hook must record independently reviewed observations;
+this website does not discover Git history, create reviews, or perform deployments.
+
+The GitHub Pages URL is the main website. Streamlit displays a secondary-view
+link to that same primary site; both continue to use the existing public feed.

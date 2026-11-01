@@ -15,7 +15,7 @@ import streamlit_app as renderer
 def schema():
     names=('CATALOG','PUBLIC_KEYS','STATES','TRIGGERS','BLOCKERS','GRAPHS','METRICS',
            'LEGACY_TRADER_KEYS','OBSERVATION_GRAPHS','RUNTIME_BASES','GRAPH_STATES','OUTCOMES','REASONS','TRADERS')
-    return {**{name:getattr(renderer,name) for name in names},'unknown':renderer.unknown(),'stages':renderer._stages()}
+    return {**{name:getattr(renderer,name) for name in names},'unknown':renderer.unknown(),'stages':renderer._stages(), 'ACTIVITY': {name:getattr(renderer._render_helper('public_activity_projection'),name) for name in ('WORKERS','COUNTS','EVENT_KEYS','ACTIVITY_KEYS','KINDS','CHANGES','CONTROLLER_SUMMARIES')}}
 
 
 def encoded(value):
@@ -44,7 +44,6 @@ def build(directory,raw,*,now=None):
     if html.count(marker)!=1:
         raise ValueError('Expected single embedded snapshot boundary required')
     html=html.replace(marker,'</script><script>'+setup.replace('</',r'<\/')+'</script><script>',1)
-    html=html.replace('<footer>','<footer><a href="https://blitzwerk-quant.streamlit.app/">Streamlit view</a>',1)
     receipt={'schema_version':1,'scope':'static_public_reporting_build','built_at':now.isoformat(),
              'snapshot_at':original['snapshot_at'],'snapshot_sha256':hashlib.sha256(raw).hexdigest(),
              'freshness_at_build':snapshot['freshness'],'source_observation_rewritten':False,

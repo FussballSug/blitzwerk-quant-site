@@ -9,7 +9,7 @@ import streamlit_app as renderer
 
 
 def cases():
-    original=json.loads(Path('assets/snapshot.json').read_bytes())
+    original=json.loads(Path('test_fixtures/observed_public_snapshot.json').read_bytes())
     observed=renderer._timestamp(original['snapshot_at'])
     employee={**renderer.CATALOG['braun'],'state':'waiting','current_task':'evaluation',
         'heartbeat':observed.timestamp(),'updated_at':observed.timestamp(),
@@ -66,6 +66,6 @@ for(const [index,row] of input.cases.entries()){
 }
 console.log(input.cases.length);
 """],input=json.dumps({'schema':json.loads(__import__('build_static').encoded(__import__('build_static').schema())),
-    'initial':json.loads(Path('assets/snapshot.json').read_bytes()),'cases':cases()}),capture_output=True,text=True,timeout=10)
+    'initial':json.loads(Path('test_fixtures/observed_public_snapshot.json').read_bytes()),'cases':cases()}),capture_output=True,text=True,timeout=10)
     assert result.returncode==0,result.stderr
     assert result.stdout.strip()=='20'

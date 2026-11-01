@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
-
 import streamlit_app
 
 
@@ -21,7 +20,7 @@ def test_hosted_entry_reads_fixed_status_feed_without_environment(monkeypatch, c
         now=observed,
     )
     current_url = streamlit_app.current_slot_url(streamlit_app.STATUS_URL_TEMPLATE, now=now)
-    requests, rendered = [], []
+    requests, rendered, notices = [], [], []
 
     def fetch(url, *, timeout):
         requests.append(url)
@@ -33,7 +32,7 @@ def test_hosted_entry_reads_fixed_status_feed_without_environment(monkeypatch, c
 
     fake_streamlit = SimpleNamespace(
         set_page_config=lambda **kwargs: None,
-        markdown=lambda *args, **kwargs: None,
+        markdown=lambda text, **kwargs: notices.append(text),
         fragment=lambda **kwargs: lambda function: function,
         warning=lambda *args: None,
         iframe=lambda document, **kwargs: rendered.append(document),
@@ -45,6 +44,7 @@ def test_hosted_entry_reads_fixed_status_feed_without_environment(monkeypatch, c
     monkeypatch.setattr(streamlit_app, "datetime", FixedDateTime)
     monkeypatch.setattr(streamlit_app, "fetch_public_snapshot", fetch)
     streamlit_app.main()
+    assert notices[0] == "Secondary view · [Main website](https://fussballsug.github.io/blitzwerk-quant-site/)"
     assert requests == ([current_url] if current_slot_available else [current_url, streamlit_app.STATUS_LATEST_URL])
     received = json.loads(rendered[0].split("window.BLITZWERK_DATA=", 1)[1].split(";</script>", 1)[0])
     assert received["snapshot_at"] == observed.isoformat()
