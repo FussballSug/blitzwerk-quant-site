@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createFlowMotion,verifiedFlowEvents}=require('./assets/team_flow.js');
+const {createFlowMotion,verifiedFlowEvents,workerDetails}=require('./assets/team_flow.js');
 function setup(){
  let next=0;const queued=new Map(),cancelled=[],frames=[];
  const motion=createFlowMotion({request:fn=>{const id=++next;queued.set(id,fn);return id},cancel:id=>{cancelled.push(id);queued.delete(id)},draw:frame=>frames.push(frame)});
@@ -44,4 +44,23 @@ test('verified result references require a real nonfuture observation within the
  assert.deepEqual(value.observations,[]);
  const future=verifiedFlowEvents({snapshot_at:'2026-11-01T00:00:00Z',freshness:'current',employees:[{employee_id:'sug',last_useful_result:'a'.repeat(64),updated_at:at}]},(at-10)*1000);
  assert.deepEqual(future.observations,[]);assert.equal(future.freshness,'unverified');
+});
+
+const at=Date.parse('2026-11-01T02:00:00Z'),snapshot={snapshot_at:new Date(at).toISOString()};
+test('retained assignment and result remain separate from worker check-in',()=>{
+ const value=workerDetails({current_task:'desk:2026-10-25:richter',last_useful_result:'a'.repeat(64),last_task_reference:'desk:2026-10-24:richter',updated_at:(at-86400000)/1000,heartbeat:null,next_trigger:'approved_task',blocker:'dependency'},snapshot,at+1000);
+ assert.equal(value.assignment,'desk:2026-10-25:richter');assert.equal(value.result,'a'.repeat(64));
+ assert.equal(value.resultTask,'desk:2026-10-24:richter');assert.equal(value.heartbeat,null);
+ assert.equal(value.resultRecordAt,(at-86400000)/1000);assert.equal(value.blocker,'dependency');
+ assert.equal(value.connected,false);
+});
+test('future or invalid report, heartbeat and result clocks never imply current activity',()=>{
+ const row={current_task:'task:1',last_useful_result:'a'.repeat(64),updated_at:at/1000+1,heartbeat:at/1000+1};
+ const value=workerDetails(row,snapshot,at+1000);assert.equal(value.heartbeat,null);assert.equal(value.result,null);
+ const future=workerDetails({...row,updated_at:1},snapshot,at-1000);assert.equal(future.assignment,null);assert.equal(future.result,null);
+});
+test('untrusted references and free-form blocker text are not exposed',()=>{
+ const value=workerDetails({current_task:'private password = secret',last_useful_result:'oops',heartbeat:0,blocker:'private text',next_trigger:'private text'},snapshot,at);
+ assert.equal(value.assignment,null);assert.equal(value.result,null);assert.equal(value.heartbeat,null);
+ assert.equal(value.blocker,null);assert.equal(value.trigger,null);
 });
