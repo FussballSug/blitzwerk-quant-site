@@ -108,9 +108,11 @@ function render(data){
 }
 async function load(){if(window.BLITZWERK_DATA){render(window.BLITZWERK_DATA);return}for(const url of ["/api/public-status","snapshot.json"]){try{const r=await fetch(url,{cache:"no-store"});if(r.ok){const data=await r.json();if(data.schema_version!==2)continue;render(data);return}}catch{}}render(fallback)}
 setInterval(()=>{$("clock").textContent=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date())+" CT"},1000);
-setInterval(load,30000);load();
+setInterval(load,30000);const initialReport=load();
 const pageSections=[...document.querySelectorAll("main > section")];
+let navigationCount=0;
 function showPage(hash){
+ navigationCount++;
  const id=hash.replace("#","");
  const overview=id==="home"||id==="operations"||!id||!pageSections.some(section=>section.id===id);
  pageSections.forEach(section=>section.hidden=!overview&&section.id!==id);
@@ -124,3 +126,13 @@ document.querySelectorAll('a[href^="#"]').forEach(link=>link.addEventListener("c
  showPage(link.getAttribute("href"));
 }));
 showPage(window.location?.hash||`#${document.body.dataset.page||"home"}`);
+// The browser applies its initial fragment after these panels become visible.
+// Restore once both that navigation and the first asynchronous report are done.
+if(window.location?.hash){
+ const initialNavigation=navigationCount;let interacted=false;
+ for(const event of ["wheel","touchstart","keydown"])window.addEventListener(event,()=>{interacted=true},{once:true,passive:true});
+ const restore=()=>Promise.resolve(initialReport).then(()=>{
+  if(navigationCount===initialNavigation&&!interacted)window.scrollTo({top:0,left:0,behavior:"instant"});
+ });
+ if(document.readyState==="complete")restore();else window.addEventListener("load",restore,{once:true});
+}

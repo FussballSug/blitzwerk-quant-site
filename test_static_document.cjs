@@ -3,7 +3,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {execFileSync}=require('node:child_process');
 
-test('actual generated scripts render offline snapshot, roster, traders, graphs and navigation',async()=>{
+for(const [initialFragment,interaction] of [['',''],['#flow',''],['#flow','wheel'],['#flow','navigation']])test('actual generated scripts settle '+(initialFragment||'home')+' / '+(interaction||'untouched'),async()=>{
  const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'blitzwerk-static-test-'));
  try{
   const output=path.join(temporary,'site');
@@ -19,17 +19,19 @@ test('actual generated scripts render offline snapshot, roster, traders, graphs 
   }
   for(const match of html.matchAll(/\bid="([^"]+)"/g))elements.set(match[1],element(match[1]));
   const sections=[...html.matchAll(/<section[^>]*\bid="([^"]+)"/g)].map(m=>elements.get(m[1]));
-  const intervals=[],requests=[],frames=new Map(),documentListeners={},motionPreference={matches:false,listener:null,addEventListener(type,fn){this.listener=fn}};let frameID=0;
+  const intervals=[],requests=[],frames=new Map(),documentListeners={},windowListeners={},scrolls=[],motionPreference={matches:false,listener:null,addEventListener(type,fn){this.listener=fn}};let frameID=0;
   class ObservedDate extends Date{static now(){return Date.parse('2026-11-01T02:00:00Z')}}
   const context={Date:ObservedDate,Intl,TextDecoder,Uint8Array,AbortController,performance,
-   setTimeout,clearTimeout,setInterval:(callback,ms)=>intervals.push({callback,ms}),scrollTo(){},
+   setTimeout,clearTimeout,setInterval:(callback,ms)=>intervals.push({callback,ms}),location:{hash:initialFragment},scrollY:0,addEventListener:(type,fn)=>windowListeners[type]=fn,scrollTo(value){scrolls.push(value);context.scrollY=value.top},
    requestAnimationFrame:fn=>{const id=++frameID;frames.set(id,fn);return id},cancelAnimationFrame:id=>frames.delete(id),matchMedia:()=>motionPreference,
    fetch:async(url,options)=>{requests.push({url,options});throw Error('synthetic offline')},
-   document:{hidden:false,addEventListener:(type,fn)=>documentListeners[type]=fn,getElementById:id=>{assert.ok(elements.has(id),id);return elements.get(id)},
+   document:{readyState:'loading',hidden:false,addEventListener:(type,fn)=>documentListeners[type]=fn,getElementById:id=>{assert.ok(elements.has(id),id);return elements.get(id)},
     createElement:()=>element(),querySelectorAll:selector=>selector==='main > section'?sections:[],body:element()}};
   context.window=context;vm.createContext(context);
   for(const [,script] of html.matchAll(/<script>([\s\S]*?)<\/script>/g))vm.runInContext(script,context,{timeout:1000});
+  if(initialFragment){assert.equal(typeof windowListeners.load,'function');if(interaction==='wheel')windowListeners.wheel();if(interaction==='navigation')vm.runInContext("showPage('#team')",context);context.scrollY=301;windowListeners.load();}
   await context.BLITZWERK_STATIC.load();await new Promise(resolve=>setImmediate(resolve));
+  if(initialFragment){assert.equal(context.scrollY,interaction?301:0,'restore after initial render only if user has not navigated or interacted');assert.equal(scrolls.at(-1).behavior,'instant');}
   assert.equal(elements.get('freshness').textContent,'STALE');
   assert.equal(elements.get('offline-warning').hidden,false);
   assert.match(elements.get('offline-warning').textContent,/last verified snapshot/);
@@ -41,7 +43,7 @@ test('actual generated scripts render offline snapshot, roster, traders, graphs 
   assert.match(elements.get('sug-connection').textContent,/unverified/);
   assert.equal(requests.length,2);assert.ok(requests.every(x=>x.url.startsWith('https://raw.githubusercontent.com/FussballSug/blitzwerk-quant-site/refs/heads/status-data/')));
   assert.deepEqual(intervals.map(x=>x.ms),[1000,30000]);
-  assert.equal(frames.size,0,'home must not animate flow');
+  assert.equal(frames.size,initialFragment&&interaction!=='navigation'?1:0,'only active flow may animate');
   vm.runInContext("showPage('#activity')",context,{timeout:1000});
   assert.equal(elements.get('activity').hidden,false);
   assert.equal((elements.get('activity-workers').innerHTML.match(/class="activity-worker"/g)||[]).length,15);
