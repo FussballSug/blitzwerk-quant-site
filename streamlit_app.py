@@ -296,9 +296,11 @@ def sanitize_operations(operations, *, now=None):
 
 def validate_public_snapshot(snapshot):
     """Fail closed before publication/rendering; return the validated original object."""
-    if not isinstance(snapshot, dict) or type(snapshot.get('schema_version')) is not int or snapshot['schema_version'] not in (2, 3):
+    if not isinstance(snapshot, dict) or type(snapshot.get('schema_version')) is not int or snapshot['schema_version'] not in (2, 3, 4):
         raise ValueError('Unexpected public snapshot schema')
-    if set(snapshot) != (PUBLIC_KEYS | {'activity'} if snapshot['schema_version'] == 3 else PUBLIC_KEYS):
+    expected = (PUBLIC_KEYS | {'activity', 'operations_coverage'} if snapshot['schema_version'] == 4
+                else PUBLIC_KEYS | {'activity'} if snapshot['schema_version'] == 3 else PUBLIC_KEYS)
+    if set(snapshot) != expected:
         raise ValueError('Unexpected public snapshot schema')
     if (not _member(snapshot.get('freshness'), {'current', 'stale', 'unverified'})
             or snapshot.get('mode') != 'paper research'
@@ -320,10 +322,12 @@ def validate_public_snapshot(snapshot):
         raise ValueError('Unverified trader scorecard')
     if snapshot['reporting'] != {'coordinator': 'Sug', 'delivery_connection': 'unverified'}:
         raise ValueError('Unverified reporting connection')
-    if snapshot['schema_version'] == 3:
+    if snapshot['schema_version'] >= 3:
         _render_helper('public_activity_projection').validate_activity(snapshot['activity'])
         if len(json.dumps(snapshot, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()) > MAX_BYTES:
             raise ValueError('Bounded total public snapshot required')
+    if snapshot['schema_version'] == 4:
+        _render_helper('public_operations_projection').validate_operations_coverage(snapshot)
     return snapshot
 
 
@@ -347,7 +351,7 @@ def refresh_public_snapshot(snapshot, *, now=None):
     validate_public_snapshot(snapshot)
     now = (now or datetime.now(UTC)).astimezone(UTC)
     result = json.loads(json.dumps(snapshot))
-    if result['schema_version'] == 3:
+    if result['schema_version'] >= 3:
         _render_helper('public_activity_projection').validate_activity(result['activity'], now=now)
     if result['snapshot_at'] is not None:
         age = (now - _timestamp(result['snapshot_at'])).total_seconds()
@@ -422,7 +426,7 @@ def _render_assets():
 
 def _render_helper(name):
     # Resolve fixed sibling code without changing the caller's global import path.
-    if name not in ('public_activity', 'team_flow', 'public_activity_projection'):
+    if name not in ('public_activity', 'team_flow', 'public_activity_projection', 'public_operations_projection'):
         raise ValueError('Fixed public rendering helper required')
     path = Path(__file__).with_name(name + '.py')
     spec = importlib.util.spec_from_file_location('_blitzwerk_public_' + name, path)
@@ -497,7 +501,7 @@ def load_local_snapshot(path=None, *, now=None):
 def _observed_time(snapshot, *, now):
     """Validate cached/remote observation time without treating receipt as health."""
     validate_snapshot(snapshot)
-    if snapshot['schema_version'] == 3:
+    if snapshot['schema_version'] >= 3:
         _render_helper('public_activity_projection').validate_activity(snapshot['activity'], now=now)
     observed = _timestamp(snapshot['snapshot_at']) if snapshot['snapshot_at'] is not None else None
     if observed is not None and observed > now:
@@ -556,8 +560,8 @@ def load_public_snapshot(url=None, *, url_template=None, cache=None, fetch=None,
                 raise ValueError('Current slot has no verified observation')
             if retained_at is not None and (observed is None or observed < retained_at):
                 raise ValueError('Public observation would regress cached evidence')
-            if (retained is not None and retained['schema_version'] == 3
-                    and (snapshot['schema_version'] != 3 or _timestamp(snapshot['activity']['collected_at']) < _timestamp(retained['activity']['collected_at']))):
+            if (retained is not None and retained['schema_version'] >= 3
+                    and (snapshot['schema_version'] < retained['schema_version'] or _timestamp(snapshot['activity']['collected_at']) < _timestamp(retained['activity']['collected_at']))):
                 raise ValueError('Public activity would regress cached evidence')
             result = refresh_public_snapshot(snapshot, now=now)
             cache['snapshot'] = json.loads(json.dumps(snapshot))
@@ -598,7 +602,8 @@ def render_document(snapshot, page='home', *, assets=None):
     cadence = ('<p id="reporting-cadence" class="rail-note">Public reports are scheduled hourly. '
                'The report timestamp shows when the data was observed; freshness is assessed separately. '
                'Operational status can become stale between reports.</p>')
-    html = html.replace('<main id="operations">', '<main id="operations">' + cadence, 1)
+    coverage = '<p id="operations-coverage" class="rail-note">Operational history coverage is recorded separately from current status.</p>'
+    html = html.replace('<main id="operations">', '<main id="operations">' + cadence + coverage, 1)
     html = html.replace('<span>LATEST UPDATE</span>', '<span>REPORT AS OF</span>', 1)
     html = html.replace('data-page="__PAGE__"', f'data-page="{page}"')
     html = html.replace('<link rel="stylesheet" href="styles.css">', f'<style>{css}</style>')
@@ -611,7 +616,7 @@ STATIC_EXPORT_FILES = (
     'test_static_site.py', 'test_static_feed.cjs', 'test_static_document.cjs',
     'test_fixtures/observed_public_snapshot.json',
     'public_activity.py', 'public_activity_projection.py', 'test_activity_projection.py', 'team_flow.py', 'test_activity.py', 'test_activity.cjs',
-    'test_flow.py', 'test_flow.cjs',
+    'test_flow.py', 'test_flow.cjs', 'public_operations_projection.py', 'test_operations_coverage.cjs',
 )
 
 

@@ -86,8 +86,16 @@ function renderGraphs(runs){
  }).join(""):"<p class='empty-state'>No verified workflow runs are available. Graph definitions alone do not establish activity.</p>";
 }
 
+function renderOperationsCoverage(data){
+ const node=$("operations-coverage");if(!node)return;
+ const c=data.schema_version===4?data.operations_coverage:null;
+ if(!c){node.textContent="Operational history coverage was not recorded with this snapshot.";return;}
+ const total=value=>value===null?"an unknown total":String(value);
+ node.textContent=`Workflow history: ${c.displayed_counts.workflows} of ${total(c.source_counts.workflows)}. Incident history: ${c.displayed_counts.incidents} of ${total(c.source_counts.incidents)}. ${c.partial?"This view has partial history coverage.":"The supplied history is shown in full."}`;
+}
 function render(data){
  data={...fallback,...data};
+ renderOperationsCoverage(data);
  let age=data.snapshot_at?(Date.now()-Date.parse(data.snapshot_at))/1000:null;
  if(age!==null&&(!Number.isFinite(age)||age<0)){data.freshness="unverified";data.desk_state="status unavailable"}
  else if(age!==null&&age>600){data.freshness="stale";data.desk_state="status delayed"}

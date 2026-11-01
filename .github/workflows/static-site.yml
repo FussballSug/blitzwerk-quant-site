@@ -30,7 +30,7 @@ jobs:
           node-version: '24'
       - run: python -m pip install pytest==9.1.1
       - run: python -m pytest -q
-      - run: node --test test_static_feed.cjs test_static_document.cjs test_activity.cjs test_flow.cjs
+      - run: node --test test_static_feed.cjs test_static_document.cjs test_activity.cjs test_flow.cjs test_operations_coverage.cjs
       - run: python build_static.py --output _site
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
