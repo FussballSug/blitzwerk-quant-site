@@ -113,7 +113,7 @@ def test_public_copy_is_us_english():
 
 def test_navigation_targets_populated_sections():
     document = streamlit_app.render_document(streamlit_app.load_local_snapshot(), page="home")
-    for target in ("mission", "processes", "desk", "team", "principles"):
+    for target in ("mission", "processes", "desk", "team", "principles", "activity", "flow"):
         assert f'href="#{target}"' in document
         assert f'id="{target}"' in document
     assert 'target="_top"' not in document
@@ -121,7 +121,7 @@ def test_navigation_targets_populated_sections():
     assert "showPage(link.getAttribute" in document
     assert '[hidden]{display:none!important}' in document
     assert 'id==="home"' in document
-    assert document.count('class="section-label"') == 6
+    assert document.count('class="section-label"') == 7
 
 
 def test_each_public_page_selects_its_populated_section():

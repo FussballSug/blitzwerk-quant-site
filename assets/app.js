@@ -11,6 +11,35 @@ let employees=Object.values(definitions).map(row=>({...row,state:"planned"}));
 let selectedDepartment="All";
 const employeeName=id=>definitions[id]?.name||(id==="owner"?"Owner / CEO":id);
 const metricKeys=["realized_pnl","unrealized_pnl","drawdown","exposure","fees","sample_size"];
+const activityModel=createActivityModel(definitions);
+const teamFlow=mountTeamFlow(document,window,window.BLITZWERK_FLOW);
+let activityData=null,activityWorker="all",activityHour="all",activityZone="America/Chicago";
+const stageLabel=value=>({observed:"Report observed",recorded_reference:"Result reference recorded",proposed:"Proposed",validated:"Validated",pushed:"Pushed",deployed:"Deployed",no_change:"No change — explicitly recorded"}[value]||value.replaceAll("_"," "));
+function renderActivity(data){
+ if(data)activityData=activityModel.build(data,window.BLITZWERK_ACTIVITY||{events:[]});
+ if(!activityData)return;
+ const value=activityData,format=at=>activityModel.displayTime(at,activityZone);
+ $("activity-worker").innerHTML='<option value="all">All workers</option><option value="unassigned">Unassigned / public reports</option>'+value.workers.map(w=>`<option value="${escape(w.employee_id)}">${escape(w.name)}</option>`).join("");
+ $("activity-worker").value=activityWorker;
+ if(activityHour!=="all"&&!value.hours.includes(activityHour))activityHour="all";
+ $("activity-hour").innerHTML='<option value="all">All supplied hours</option>'+value.hours.map(hour=>`<option value="${escape(hour)}">${escape(activityModel.hourLabel(hour,activityZone))}</option>`).join("");
+ $("activity-hour").value=activityHour;$("activity-zone").value=activityZone;
+ $("activity-asof").textContent=`${value.freshness.toUpperCase()} REPORT · Observed ${format(value.snapshot_at)}${value.snapshot_at?' · '+value.snapshot_at:''}. Engineering notes do not refresh operational health.`;
+ $("activity-asof").className="activity-asof "+(value.freshness==="current"?"current":"warning");
+ const events=activityModel.filter(value,activityWorker,activityHour),rows=activityModel.workerRows(value,activityWorker,activityHour);
+ const workerCount=rows.filter(r=>r.evidence).length,engineering=events.filter(e=>e.kind==="engineering");
+ $("activity-summary").innerHTML=`<div><strong>${events.length}</strong><span>Supplied records in this view</span></div><div><strong>${workerCount} / ${rows.length}</strong><span>Workers with a result reference</span></div><div><strong>${engineering.filter(e=>e.stage==="pushed").length}</strong><span>Explicit reviewed push records</span></div>`;
+ $("activity-workers").innerHTML=rows.length?rows.map(row=>{
+  const e=row.evidence;
+  return `<article class="activity-worker"><div><h4>${escape(row.name)}</h4><span>${e?"Recorded reference":"No verified hourly accomplishment"}</span></div>${e?`<p>Registry observation ${escape(format(e.at))}</p><p>Accomplishment details and completion time are not supplied.</p><details><summary>View result reference</summary><code>${escape(e.receipt)}</code>${e.task?`<p>Task reference: ${escape(e.task)}</p>`:""}</details>`:'<p>No verified evidence was supplied for this worker in the selected hour(s). This does not establish inactivity.</p>'}</article>`;
+ }).join(""):'<p class="empty-state">Unassigned records do not establish worker attribution.</p>';
+ $("activity-events").innerHTML=events.length?events.slice(0,80).map(event=>`<article class="activity-event"><div class="activity-event-head"><span class="activity-badge ${event.kind==="engineering"?"engineering":""}">${escape(stageLabel(event.stage))}</span><time datetime="${escape(event.at)}">${escape(format(event.at))}</time></div><h4>${escape(event.summary)}</h4><p>${event.worker_id?escape(employeeName(event.worker_id)):"Worker attribution not supplied"} · UTC hour ${escape(event.hour)}</p>${event.kind==="engineering"&&event.stage==="deployed"?'<p>Deployment evidence is separate from current operational health.</p>':""}<details><summary>Evidence and release references</summary><p>Observed: ${escape(event.at)}</p>${event.receipt?`<p>Receipt SHA-256</p><code>${escape(event.receipt)}</code>`:'<p>No event-specific receipt was supplied.</p>'}${event.release?`<p>Source / release commit</p><code>${escape(event.release)}</code>`:'<p>Release reference not supplied.</p>'}${event.run?`<p>Workflow: ${escape(event.run)}</p><p>Run-level artifacts; not mapped to this checkpoint:</p>${(event.run_receipts||[]).map(d=>`<code>${escape(d)}</code>`).join("")||'<p>None supplied.</p>'}`:""}${event.link?`<p><a href="${escape(event.link)}" target="_blank" rel="noopener noreferrer">Public source evidence ↗</a></p>`:""}${event.deployment_url?`<p><a href="${escape(event.deployment_url)}" target="_blank" rel="noopener noreferrer">Deployed public report ↗</a></p>`:""}</details></article>`).join("")+(events.length>80?'<p class="rail-note">Showing the latest 80 matching records. Choose an hour or worker to narrow the view.</p>':""):'<p class="empty-state">No verified records were supplied for this filter. This is an evidence gap, not a “no change” result.</p>';
+ $("activity-coverage").textContent=`Coverage: one latest public snapshot and its supplied workflow history${value.ledger_reviewed_at?", plus reviewed engineering notes as of "+format(value.ledger_reviewed_at):"; reviewed engineering notes have not been supplied"}. This feed does not yet contain a complete per-hour accomplishment history for every worker. Snapshot delivery time, observation time and task completion time are different facts.`;
+ $("activity-engineering-gap").textContent=value.events.some(e=>e.kind==="engineering")?"Engineering entries retain their exact recorded stage. Proposed or validated work is not presented as pushed or deployed.":"No verified engineering push or deployment records are supplied. An empty improvement graph does not prove that no engineering occurred.";
+}
+for(const [id,choose] of [["activity-worker",value=>activityWorker=value],["activity-hour",value=>activityHour=value],["activity-zone",value=>activityZone=value==="UTC"?"UTC":"America/Chicago"]]){
+ $(id).addEventListener("change",event=>{choose(event.target.value);renderActivity()});
+}
 const evidenceKeys=["strategy_version","configured_strategy_version","executed_strategy_version","configured_source_revision","executed_source_revision","manifest_sha256","strategy_evidence_as_of","strategy_evidence_reference","execution_basis","mandate_reference","approved_universe_reference","risk_policy_reference","performance_basis","performance_as_of","performance_reference","assumed_costs"];
 const epoch=value=>typeof value==="number"&&Number.isFinite(value)&&value>=0;
 const digest=value=>typeof value==="string"&&/^[a-f0-9]{64}$/.test(value);
@@ -74,16 +103,21 @@ function render(data){
  $("incident-list").innerHTML=(data.incidents||[]).length?data.incidents.map(item=>`<article class="status-item"><h3>${escape(item.incident_id)}</h3><p>${escape(item.state)} · owner ${escape(known(item.owner))} · ${escape(item.reason.replaceAll("_"," "))}</p><small>First ${escape(time(item.first_seen))} · latest ${escape(time(item.last_seen))}</small></article>`).join(""):"<p class='empty-state'>No public incident evidence is available. This does not establish incident-free operation.</p>";
  $("improvement-list").innerHTML=(data.improvements||[]).length?data.improvements.map(item=>`<article class="status-item"><h3>${escape(item.run_id)}</h3><p>${escape(item.node.replaceAll("_"," "))} · ${escape(item.status)}</p></article>`).join(""):"<p class='empty-state'>No verified improvement candidates are available. No change justified is a valid result.</p>";
  $("sug-connection").textContent=`Sug reporting route: ${known(data.reporting.delivery_connection)}. A local queue does not establish phone delivery.`;
+ renderActivity(data);
+ teamFlow.update(data);
 }
 async function load(){if(window.BLITZWERK_DATA){render(window.BLITZWERK_DATA);return}for(const url of ["/api/public-status","snapshot.json"]){try{const r=await fetch(url,{cache:"no-store"});if(r.ok){const data=await r.json();if(data.schema_version!==2)continue;render(data);return}}catch{}}render(fallback)}
 setInterval(()=>{$("clock").textContent=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(new Date())+" CT"},1000);
-setInterval(load,30000);load();
+setInterval(load,30000);const initialReport=load();
 const pageSections=[...document.querySelectorAll("main > section")];
+let navigationCount=0;
 function showPage(hash){
+ navigationCount++;
  const id=hash.replace("#","");
  const overview=id==="home"||id==="operations"||!id||!pageSections.some(section=>section.id===id);
  pageSections.forEach(section=>section.hidden=!overview&&section.id!==id);
  document.body.classList.toggle("page-view",!overview);
+ teamFlow.setVisible(id==="flow");
  document.querySelectorAll("nav a").forEach(link=>link.classList.toggle("active",link.getAttribute("href")===`#${id}`));
  window.scrollTo({top:0,behavior:"instant"});
 }
@@ -91,4 +125,14 @@ document.querySelectorAll('a[href^="#"]').forEach(link=>link.addEventListener("c
  event.preventDefault();
  showPage(link.getAttribute("href"));
 }));
-showPage(`#${document.body.dataset.page||"home"}`);
+showPage(window.location?.hash||`#${document.body.dataset.page||"home"}`);
+// The browser applies its initial fragment after these panels become visible.
+// Restore once both that navigation and the first asynchronous report are done.
+if(window.location?.hash){
+ const initialNavigation=navigationCount;let interacted=false;
+ for(const event of ["wheel","touchstart","keydown"])window.addEventListener(event,()=>{interacted=true},{once:true,passive:true});
+ const restore=()=>Promise.resolve(initialReport).then(()=>{
+  if(navigationCount===initialNavigation&&!interacted)window.scrollTo({top:0,left:0,behavior:"instant"});
+ });
+ if(document.readyState==="complete")restore();else window.addEventListener("load",restore,{once:true});
+}

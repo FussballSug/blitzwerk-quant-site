@@ -400,7 +400,7 @@ def build_public_snapshot(receipt, *, now=None, operations=None):
 
 validate_snapshot = validate_public_snapshot
 ASSETS = Path(__file__).parent / 'assets'
-PAGES = {'home', 'mission', 'processes', 'desk', 'team', 'principles'}
+PAGES = {'home', 'mission', 'processes', 'desk', 'team', 'principles', 'activity', 'flow'}
 
 
 def _assets():
@@ -545,13 +545,20 @@ def load_public_snapshot(url=None, *, url_template=None, cache=None, fetch=None,
 
 
 def render_document(snapshot, page='home', *, assets=None):
+    from public_activity import read_ledger
+    from team_flow import scene, svg
     validate_snapshot(snapshot)
     assets = Path(assets) if assets is not None else _assets()
     page = page if page in PAGES else 'home'
     html = (assets / 'index.html').read_text()
     css = (assets / 'styles.css').read_text()
-    script = (assets / 'app.js').read_text()
+    activity = read_ledger(assets / 'activity.json')
+    flow = scene(CATALOG)
+    html = html.replace('<!--TEAM_FLOW-->', svg(flow))
+    script = '\n'.join((assets / name).read_text() for name in ('activity.js', 'team_flow.js', 'app.js'))
     payload = json.dumps(snapshot, sort_keys=True).replace('</', r'<\/')
+    activity_payload = json.dumps(activity, sort_keys=True).replace('</', r'<\/')
+    flow_payload = json.dumps(flow, sort_keys=True).replace('</', r'<\/')
     cadence = ('<p id="reporting-cadence" class="rail-note">Public reports are scheduled hourly. '
                'The report timestamp shows when the data was observed; freshness is assessed separately. '
                'Operational status can become stale between reports.</p>')
@@ -559,7 +566,7 @@ def render_document(snapshot, page='home', *, assets=None):
     html = html.replace('<span>LATEST UPDATE</span>', '<span>REPORT AS OF</span>', 1)
     html = html.replace('data-page="__PAGE__"', f'data-page="{page}"')
     html = html.replace('<link rel="stylesheet" href="styles.css">', f'<style>{css}</style>')
-    return html.replace('<script src="app.js"></script>', f'<script>window.BLITZWERK_DATA={payload};</script><script>{script}</script>')
+    return html.replace('<script src="app.js"></script>', f'<script>window.BLITZWERK_DATA={payload};</script><script>window.BLITZWERK_ACTIVITY={activity_payload};window.BLITZWERK_FLOW={flow_payload};{script}</script>')
 
 
 def export_package(directory):
@@ -569,9 +576,11 @@ def export_package(directory):
         raise ValueError('Empty existing package directory required')
     assets = directory / 'assets'
     assets.mkdir()
-    for name in ('index.html', 'styles.css', 'app.js', 'snapshot.json'):
+    for name in ('index.html', 'styles.css', 'app.js', 'snapshot.json', 'activity.js', 'activity.json', 'team_flow.js'):
         shutil.copyfile(_assets() / name, assets / name)
     shutil.copyfile(__file__, directory / 'streamlit_app.py')
+    shutil.copyfile(Path(__file__).with_name('public_activity.py'), directory / 'public_activity.py')
+    shutil.copyfile(Path(__file__).with_name('team_flow.py'), directory / 'team_flow.py')
     source = Path(__file__).parents[1]
     shutil.copyfile(source / 'requirements.txt', directory / 'requirements.txt')
     shutil.copyfile(Path(__file__).with_name('README.md'), directory / 'README.md')

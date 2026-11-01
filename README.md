@@ -92,3 +92,43 @@ Python/JavaScript parity includes real public evidence, synthetic strategy metri
 workflow variants and the unchanged freshness boundaries. No Streamlit dependency
 is needed to build or test the static report; the existing Streamlit requirement
 continues to serve the existing hosted app.
+
+## Hourly activity and Team Flow
+
+The Hourly Activity tab groups observations by unique UTC hour, with a choice of
+America/Chicago or UTC display. Chicago daylight-saving repeated hours retain
+separate UTC keys and timezone labels. Every registry worker remains visible,
+including workers with no verified accomplishment. A recorded result digest is
+shown as a reference, not an inferred completion. Missing evidence is not a
+no-change report. Saved workflow checkpoints do not establish a Git push or deploy.
+
+`assets/activity.json` is a separately reviewed public engineering ledger, embedded
+at build time: at most48 exact-schema events /24KiB, fixed public repository links,
+release and receipt digests, and optional known-worker attribution. It adds no
+browser request. Initial entries retain the actual observation of remote release
+522e4355 and successful Pages deployment41252580820. Their observed time is not
+claimed to be the exact push time. Worker attribution is unknown. Engineering
+notes never refresh the operational snapshot or imply a running PAPER session.
+A future change needs its own factual source review; a commit is not deployment.
+
+The Team Flow tab uses the same fifteen registry identities and reporting lines.
+It illustrates possible evidence handoffs, not deployed workers or observed
+messages. Independent Schneider review and Weber risk veto remain distinct gates.
+The guided tour, role focus, keyboard selection, pause/speed and reduced-motion
+static map have no execution controls. Motion uses one requestAnimationFrame chain,
+at most24 particles /30 visual updates per second, and runs only while that tab
+and document are visible. Verified-events mode never animates conceptual routes.
+No CDN, extra dependency, background keepalive or persistence is introduced.
+
+The public schema currently lacks complete hourly worker accomplishment histories,
+per-event author attribution, and sender/receiver/time-bound transfer attestations.
+The tabs display those gaps explicitly; they do not reconstruct them from names,
+workflow topology or receipt hashes. The existing64KiB/two-request/five-second
+feed and freshness thresholds remain unchanged. Both tabs work in the static
+build and existing Streamlit renderer; no static-site deploy updates Streamlit
+until the existing host actually adopts the corresponding repository version.
+
+Additional local checks: `node --test test_activity.cjs test_flow.cjs`; all Node
+checks use `PYTHON=/path/to/python3.12` when the default interpreter is older.
+Apply the private engineering repository's `docs/AUTOMATED_ENGINEERING.md` for
+independent source review, required CI and actual deployment/readback acceptance.
