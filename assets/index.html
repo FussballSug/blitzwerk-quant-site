@@ -10,7 +10,7 @@
   <div class="grain" aria-hidden="true"></div>
   <header>
     <a class="brand" href="#home"><span class="monogram">BK</span><span><b>BLITZWERK</b><small>KAPITAL</small></span></a>
-    <nav><a href="#mission">MISSION</a><a href="#processes">PROCESSES</a><a href="#desk">DESK</a><a href="#team">AI TEAM</a><a href="#principles">PRINCIPLES</a></nav>
+    <nav aria-label="Public report sections"><a href="#activity">HOURLY ACTIVITY</a><a href="#flow">TEAM FLOW</a><a href="#mission">MISSION</a><a href="#processes">PROCESSES</a><a href="#desk">DESK</a><a href="#team">AI TEAM</a><a href="#principles">PRINCIPLES</a></nav>
     <div class="system"><i></i><span id="system-state">LOADING STATUS</span></div>
   </header>
 
@@ -78,6 +78,42 @@
       <h3>Improvement candidates</h3><div id="improvement-list"></div>
       <p id="sug-connection" class="rail-note">Sug reporting route: unverified.</p>
       <p class="rail-note">Last sustained recovery: UNKNOWN until a complete reconciled recovery artifact is verified. A running process alone is insufficient.</p>
+    </section>
+
+    <section class="hourly-activity" id="activity" aria-labelledby="activity-title">
+      <div class="section-label"><span>06</span><p>HOURLY ACTIVITY</p><h2 id="activity-title">Recorded work.<br>Visible evidence.</h2></div>
+      <p class="activity-intro">Hourly report observations, each worker's available result references, and reviewed engineering changes. A missing record is an evidence gap, not proof that no work occurred. Named workers are software responsibility roles.</p>
+      <div class="activity-controls">
+        <label>Worker<select id="activity-worker"><option value="all">All workers</option></select></label>
+        <label>Recorded hour<select id="activity-hour"><option value="all">All supplied hours</option></select></label>
+        <label>Display timezone<select id="activity-zone"><option value="America/Chicago">Chicago (Central Time)</option><option value="UTC">UTC</option></select></label>
+      </div>
+      <p id="activity-asof" class="activity-asof" role="status"></p>
+      <div id="activity-summary" class="activity-summary"></div>
+      <div class="activity-columns">
+        <div><h3>Worker accomplishments</h3><p class="rail-note">No verified hourly accomplishment is inferred from a heartbeat or a saved reference. Completion details require an explicit result record.</p><div id="activity-workers"></div></div>
+        <div><h3>Hourly update log</h3><p class="rail-note">UTC hour keys stay unique when Chicago repeats an hour at the end of daylight saving time.</p><div id="activity-events"></div></div>
+      </div>
+      <aside class="activity-coverage"><h3>What this view can verify</h3><p id="activity-coverage"></p><p>Proposed, validated, pushed, and deployed are separate states. A commit or passed workflow checkpoint does not prove deployment. “No change” appears only when an explicit reviewed record says so.</p><p id="activity-engineering-gap"></p></aside>
+    </section>
+
+    <section class="team-flow" id="flow" aria-labelledby="flow-title">
+      <div class="flow-heading"><div><p class="kicker">THE BLITZWERK NETWORK</p><h2 id="flow-title">Intelligence moves.<br><em>Evidence leads.</em></h2></div><p>Explore how fifteen specialized roles connect research, independent review, risk, engineering and owner reporting.</p></div>
+      <div class="flow-boundary"><b>Illustration, not live activity</b><span>These routes describe responsibilities and possible evidence handoffs. No animation establishes deployed workers, actual messages or trading permission.</span></div>
+      <p id="flow-asof" class="activity-asof" role="status">PAPER / SIMULATED · Current engine state is unknown.</p>
+      <div class="flow-controls">
+        <label>View<select id="flow-mode"><option value="conceptual">Illustrated workflows</option><option value="verified">Verified events only</option></select></label>
+        <label>Focus a worker<select id="flow-worker"><option value="all">All roles / guided tour</option></select></label>
+        <button id="flow-play" type="button">Pause motion</button>
+        <label>Speed<select id="flow-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option></select></label>
+      </div>
+      <div class="flow-shell">
+        <div class="flow-visual"><div class="flow-scene-label"><span>REGISTRY / 15 ROLES</span><span id="flow-proof-state">ILLUSTRATION — no observed transfers are implied</span></div><div id="flow-map" class="flow-map"><!--TEAM_FLOW--></div><div class="flow-legend"><span class="research">Research</span><span class="evaluation">Evaluation</span><span class="review">Independent review</span><span class="risk">Risk / veto</span><span class="engineering">Engineering</span><span class="reporting">Reporting</span></div></div>
+        <aside class="flow-detail"><p class="flow-eyebrow">ROLE FOCUS</p><h3 id="flow-role-name">The coordination layer</h3><p id="flow-role-purpose">Select a role to explore its defined responsibilities.</p><div id="flow-role-details"></div><div id="flow-observations"></div></aside>
+      </div>
+      <div class="flow-tour"><span id="flow-step">01 / 05</span><div><h3 id="flow-tour-title">Gather evidence</h3><p id="flow-tour-description">Research and intelligence provide cited, reproducible observations.</p></div><div class="flow-tour-buttons"><button id="flow-prev" type="button" aria-label="Previous illustrated workflow">←</button><button id="flow-next" type="button" aria-label="Next illustrated workflow">Next handoff →</button></div></div>
+      <p id="flow-evidence-gap" class="rail-note">Verified handoff records have not been supplied.</p><p id="flow-motion-note" class="rail-note">Motion is illustrative and stops while this tab is hidden.</p>
+      <noscript><p class="flow-boundary">The static map above remains available without JavaScript. Sug coordinates; Reinhardt leads Braun, Hartmann, Krüger, Fischer and Johanna. Hoffmann owns engineering, Vogel accounting, Müller resources, and Adler leads Richter and Bergmann. Weber and Schneider report independently to the owner. No live activity is implied.</p></noscript>
     </section>
 
     <section class="principles" id="principles">
