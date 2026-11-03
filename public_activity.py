@@ -21,7 +21,13 @@ CHANGES = {
 }
 STAGES = {'proposed', 'validated', 'pushed', 'deployed', 'no_change'}
 PUBLIC_REPO = 'https://github.com/FussballSug/blitzwerk-quant-site/'
-PUBLIC_SITE = 'https://fussballsug.github.io/blitzwerk-quant-site/'
+PUBLIC_SITE = 'https://blitzwerk-quant.streamlit.app/'
+RETIRED_PAGES_SITE = 'https://fussballsug.github.io/blitzwerk-quant-site/'
+RETIRED_PAGES_EVENTS = {
+    'static-public-report-pages-41252580820': '41252580820',
+    'hourly-activity-pages-41262131000': '41262131000',
+    'reporting-reliability-pages-41266019682': '41266019682',
+}
 EVENT_KEYS = {'event_id', 'observed_at', 'worker_id', 'change', 'stage', 'source_revision',
               'receipt_sha256', 'reference_url', 'deployment_url'}
 
@@ -63,11 +69,16 @@ def validate(value, *, now=None):
         link, deployed = event['reference_url'], event['deployment_url']
         need(link is None or type(link) is str and re.fullmatch(
             re.escape(PUBLIC_REPO) + r'(?:commit/[a-f0-9]{40}|pull/[1-9][0-9]*|actions/runs/[1-9][0-9]*)', link))
-        need(deployed is None or deployed == PUBLIC_SITE)
+        historical_pages = (
+            identity in RETIRED_PAGES_EVENTS
+            and deployed == RETIRED_PAGES_SITE
+            and link == PUBLIC_REPO + 'actions/runs/' + RETIRED_PAGES_EVENTS[identity]
+        )
+        need(deployed is None or deployed == PUBLIC_SITE or historical_pages)
         if event['stage'] == 'pushed':
             need(revision is not None and link == PUBLIC_REPO + 'commit/' + revision and deployed is None)
         elif event['stage'] == 'deployed':
-            need(revision is not None and deployed == PUBLIC_SITE and type(link) is str
+            need(revision is not None and (deployed == PUBLIC_SITE or historical_pages) and type(link) is str
                  and re.fullmatch(re.escape(PUBLIC_REPO) + r'actions/runs/[1-9][0-9]*', link))
         else:
             need(deployed is None)

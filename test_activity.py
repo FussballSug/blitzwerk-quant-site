@@ -119,3 +119,14 @@ def test_reviewed_public_notes_do_not_attribute_an_unproven_worker():
             run = identity.rsplit('-', 1)[-1]
             assert row['reference_url'] == 'https://github.com/FussballSug/blitzwerk-quant-site/actions/runs/' + run
             assert row['deployment_url'] == 'https://fussballsug.github.io/blitzwerk-quant-site/'
+
+
+def test_streamlit_is_current_site_while_exact_pages_records_remain_history():
+    from public_activity import PUBLIC_SITE, RETIRED_PAGES_EVENTS
+
+    assert PUBLIC_SITE == 'https://blitzwerk-quant.streamlit.app/'
+    assert RETIRED_PAGES_EVENTS == {
+        'static-public-report-pages-41252580820': '41252580820',
+        'hourly-activity-pages-41262131000': '41262131000',
+        'reporting-reliability-pages-41266019682': '41266019682',
+    }

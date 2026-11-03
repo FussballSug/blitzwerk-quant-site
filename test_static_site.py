@@ -18,7 +18,7 @@ def test_static_build_is_self_contained_and_retains_snapshot_and_notice(tmp_path
     assert 'BLITZWERK_STATIC' in html and 'REPORT AS OF' in html
     assert 'Public reports are scheduled hourly.' in html
     assert 'STALE / OFFLINE REPORTING' in html
-    assert 'https://blitzwerk-quant.streamlit.app/' not in html
+    assert 'https://blitzwerk-quant.streamlit.app/' in html
     assert 'Secondary view' not in html
     assert '<script src=' not in html and '<link rel="stylesheet"' not in html
     receipt=json.loads((output/'build.json').read_bytes())

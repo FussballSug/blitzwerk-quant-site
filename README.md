@@ -50,7 +50,7 @@ The reader contains no Git writer or credential. The private engineering
 proposal limits a candidate writer to 168 lifetime slots and requires separate
 activation and headless-authentication acceptance; none is started by this package.
 
-## Static report in the same repository
+## Static presentation QA in the same repository
 
 `python build_static.py --output _site` creates a self-contained `index.html`
 and a build receipt. It uses this renderer's existing validator, roster, scorecards,
@@ -74,21 +74,17 @@ The existing 30-second refresh runs only while the page is open. Existing 600-se
 report, 45-second controller and 60-second heartbeat/evidence thresholds remain.
 An hourly snapshot will normally become stale before the next hourly report.
 
-The `Static public report` workflow tests and builds on PRs and main pushes using
-standard public GitHub-hosted runners. **Deployment runs only on an explicit
-workflow dispatch from main**, after Pages is configured for GitHub Actions.
-Merging the code alone neither enables Pages nor deploys it. No schedule or workflow
-is added to the JSON-only `status-data` branch. The published page reads subsequent
-JSON updates without a site rebuild. GitHub documents Pages for public repositories
-on its free tier; this is an informational project report with no transactions or
-paid-hosting settings. Apply `docs/AUTOMATED_ENGINEERING.md` in the engineering repo
-for independent review and actual post-deployment URL/readback verification.
+The `Public presentation checks` workflow tests and builds on PRs and main pushes
+using standard public GitHub-hosted runners. It has no manual dispatch, Pages
+permission, Pages artifact, or deployment job. Static output is retained only for
+local presentation verification; it is not an approved public destination. No
+schedule or workflow is added to the JSON-only `status-data` branch. Apply
+`docs/AUTOMATED_ENGINEERING.md` in the engineering repository for independent
+review and operational acceptance.
 
-The existing static URL is `https://fussballsug.github.io/blitzwerk-quant-site/`.
-The existing `https://blitzwerk-quant.streamlit.app/` entry remains compatible and
-available as a secondary view with a link to the primary website. A static mirror cannot redirect a
-sleeping Streamlit host. Deployment and user-facing primary-link adoption are
-separate from implementation/CI. The engineering export includes the static support and workflow by a fixed
+`https://blitzwerk-quant.streamlit.app/` is the sole official public website.
+The historical GitHub Pages URL is retired and must not receive new product or
+status work. The engineering export includes static QA support by a fixed
 allowlist. `test_fixtures/observed_public_snapshot.json` is historical already-public
 October31 evidence used only by tests; it never becomes the runtime fallback
 unless explicitly selected. The legacy source fixture is preserved.
@@ -113,7 +109,7 @@ no-change report. Saved workflow checkpoints do not establish a Git push or depl
 at build time: at most48 exact-schema events /24KiB, fixed public repository links,
 release and receipt digests, and optional known-worker attribution. It adds no
 browser request. Initial entries retain the actual observation of remote release
-522e4355 and successful Pages deployment41252580820. Their observed time is not
+522e4355 and historical Pages deployment41252580820. Their observed time is not
 claimed to be the exact push time. Worker attribution is unknown. Engineering
 notes never refresh the operational snapshot or imply a running PAPER session.
 A future change needs its own factual source review; a commit is not deployment.
@@ -165,5 +161,5 @@ never a private URL. Branch presence does not establish merge or runtime adoptio
 The explicit completion hook must record independently reviewed observations;
 this website does not discover Git history, create reviews, or perform deployments.
 
-The GitHub Pages URL is the main website. Streamlit displays a secondary-view
-link to that same primary site; both continue to use the existing public feed.
+Streamlit is the sole official public website and continues to use the existing
+sanitized public feed. Static output is local QA only.

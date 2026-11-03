@@ -601,7 +601,8 @@ def render_document(snapshot, page='home', *, assets=None):
     flow_payload = json.dumps(flow, sort_keys=True).replace('</', r'<\/')
     cadence = ('<p id="reporting-cadence" class="rail-note">Public reports are scheduled hourly. '
                'The report timestamp shows when the data was observed; freshness is assessed separately. '
-               'Operational status can become stale between reports.</p>')
+               'Operational status can become stale between reports. Official public website: '
+               '<a href="https://blitzwerk-quant.streamlit.app/">blitzwerk-quant.streamlit.app</a>.</p>')
     coverage = '<p id="operations-coverage" class="rail-note">Operational history coverage is recorded separately from current status.</p>'
     html = html.replace('<main id="operations">', '<main id="operations">' + cadence + coverage, 1)
     html = html.replace('<span>LATEST UPDATE</span>', '<span>REPORT AS OF</span>', 1)
@@ -661,7 +662,7 @@ def main():
     import streamlit as st
 
     st.set_page_config(page_title='Blitzwerk Kapital', page_icon='⚡', layout='wide', initial_sidebar_state='collapsed')
-    st.markdown('Secondary view · [Main website](https://fussballsug.github.io/blitzwerk-quant-site/)')
+    st.markdown('Official public website · https://blitzwerk-quant.streamlit.app/')
     st.markdown('<style>#MainMenu,header,footer{visibility:hidden}.block-container{padding:0;max-width:none}</style>', unsafe_allow_html=True)
     if 'public_snapshot_cache' not in st.session_state:
         st.session_state['public_snapshot_cache'] = {}

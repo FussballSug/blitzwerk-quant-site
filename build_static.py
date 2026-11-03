@@ -1,7 +1,7 @@
 """Build one self-contained public report; never fetch or publish.
 
-Apply docs/AUTOMATED_ENGINEERING.md. Pages consumes the same sanitized public
-snapshot and validator as Streamlit. A browser reads only the existing feed.
+Apply docs/AUTOMATED_ENGINEERING.md. This output is local presentation QA only;
+Streamlit is the sole official public site. A browser reads only the existing feed.
 """
 import argparse
 import hashlib

@@ -44,7 +44,7 @@ def test_hosted_entry_reads_fixed_status_feed_without_environment(monkeypatch, c
     monkeypatch.setattr(streamlit_app, "datetime", FixedDateTime)
     monkeypatch.setattr(streamlit_app, "fetch_public_snapshot", fetch)
     streamlit_app.main()
-    assert notices[0] == "Secondary view · [Main website](https://fussballsug.github.io/blitzwerk-quant-site/)"
+    assert notices[0] == "Official public website · https://blitzwerk-quant.streamlit.app/"
     assert requests == ([current_url] if current_slot_available else [current_url, streamlit_app.STATUS_LATEST_URL])
     received = json.loads(rendered[0].split("window.BLITZWERK_DATA=", 1)[1].split(";</script>", 1)[0])
     assert received["snapshot_at"] == observed.isoformat()

@@ -1,11 +1,10 @@
-name: Static public report
+name: Public presentation checks
 
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,23 +31,3 @@ jobs:
       - run: python -m pytest -q
       - run: node --test test_static_feed.cjs test_static_document.cjs test_activity.cjs test_flow.cjs test_operations_coverage.cjs
       - run: python build_static.py --output _site
-      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
-        with:
-          path: _site
-
-  deploy:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-      - name: Deploy reviewed static report
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
