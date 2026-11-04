@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -109,6 +110,37 @@ def test_public_copy_is_us_english():
         "STATUS WIRD GELADEN",
     ):
         assert german_copy not in document
+
+
+def test_hosted_trading_floor_has_three_installed_and_eight_modular_positions():
+    document = streamlit_app.render_document(streamlit_app.load_local_snapshot(), page="desk")
+    slots = re.findall(
+        r'<article data-floor-slot="([a-z]+)" data-membership="(installed|modular)">'
+        r'.*?<h4>([^<]+)</h4>.*?</article>',
+        document,
+    )
+    assert len(slots) == 11
+    assert len({slot_id for slot_id, _, _ in slots}) == 11
+    assert {slot_id for slot_id, membership, _ in slots if membership == "installed"} == {
+        "braun", "hartmann", "krueger"
+    }
+    assert sum(membership == "modular" for _, membership, _ in slots) == 8
+    assert [(slot_id, name) for slot_id, _, name in slots] == [
+        ("braun", "Maximilian Braun"),
+        ("hartmann", "Felix Hartmann"),
+        ("krueger", "Tobias Krüger"),
+        ("schatten", "Der Scalper Wilhelm"),
+        ("sturm", "Viktor Sturm"),
+        ("weiss", "Dr. Leonhard Weiss"),
+        ("falk", "Clara Falk"),
+        ("brandt", "Nora Brandt"),
+        ("roth", "Elias Roth"),
+        ("seidel", "Otto Seidel"),
+        ("keller", "Dr. Adrian Keller"),
+    ]
+    assert "PAPER AUTHORITY OFF" in document
+    assert "MODULAR CAPACITY / UNASSIGNED" in document
+    assert "Roster membership does not authorize execution" in document
 
 
 def test_navigation_targets_populated_sections():
